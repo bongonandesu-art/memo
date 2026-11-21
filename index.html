@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEMO-Q_v2.0</title>
-<!-- Version: v2.0 -->
+<title>MEMO-Q_v2.1</title>
+<!-- Version: v2.1 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -283,13 +283,35 @@
   .memo-settings-fields .memo-setting-label .dot { font-size:1rem; line-height:1; }
   .modal-actions { display:flex; gap:8px; }
   .modal-actions button { flex:1; }
+  /* v2.1 テキスト欄の見出し行（左：テキスト入力／右：QRコードから読み込み） */
+  .text-label-row { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:4px; }
+  .text-label-row label { margin:0; }
+  .qr-read-link {
+    border:0; background:transparent; color:var(--sub-text); font-family:inherit;
+    font-size:calc(0.8rem - 2px); font-weight:normal; cursor:pointer;
+    padding:6px 0 6px 12px; margin:-6px 0; white-space:nowrap;
+  }
+  .qr-read-link:active { color:var(--primary-color); }
+  /* v2.1 QR読み取りモーダル */
+  .qr-scan-video-wrap { position:relative; width:100%; aspect-ratio:1 / 1; background:#000; border-radius:8px; overflow:hidden; }
+  .qr-scan-video-wrap video { width:100%; height:100%; object-fit:cover; display:block; }
+  .qr-scan-frame { position:absolute; inset:18%; border:3px solid rgba(255,255,255,.85); border-radius:10px; box-shadow:0 0 0 999px rgba(0,0,0,.28); pointer-events:none; }
+  #qrScanStatus { margin:10px 0 12px; color:#555; font-size:.82rem; line-height:1.5; }
+  /* v2.1 トースト */
+  .memo-toast {
+    position:fixed; left:50%; bottom:28px; transform:translateX(-50%); z-index:1100;
+    max-width:calc(100vw - 32px); padding:10px 16px; border-radius:20px;
+    background:rgba(40,40,40,.92); color:#fff; font-size:.85rem; text-align:center;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .memo-toast.show { opacity:1; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.0</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.1</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -325,7 +347,10 @@
         </div>
       </div>
       <div class="form-group">
-        <label>テキスト</label>
+        <div class="text-label-row">
+          <label for="memoText">テキスト入力</label>
+          <button type="button" class="qr-read-link" onclick="openQrScanner()">QRコードから読み込み</button>
+        </div>
         <textarea id="memoText" placeholder="メモ内容を入力..."></textarea>
       </div>
       <div class="row">
@@ -362,6 +387,22 @@
     </div>
   </div>
 
+  <!-- v2.1 QRコード読み取り（カメラ） -->
+  <div class="modal-overlay" id="qrScanModal" onclick="closeQrScanner()">
+    <div class="qr-modal-box" onclick="event.stopPropagation()">
+      <h3>QRコードから読み込み</h3>
+      <div class="qr-scan-video-wrap">
+        <video id="qrScanVideo" playsinline muted autoplay></video>
+        <div class="qr-scan-frame"></div>
+      </div>
+      <canvas id="qrScanCanvas" class="hidden"></canvas>
+      <div id="qrScanStatus">カメラを起動しています…</div>
+      <button type="button" class="qr-close-btn" onclick="closeQrScanner()">キャンセル</button>
+    </div>
+  </div>
+
+  <div class="memo-toast" id="memoToast" role="status" aria-live="polite"></div>
+
   <div class="modal-overlay" id="memoLabelSettingsModal" onclick="closeMemoLabelSettings()">
     <div class="modal-box" onclick="event.stopPropagation()">
       <strong>ラベル設定</strong>
@@ -376,6 +417,8 @@
 <!-- QRコード生成ライブラリ（MIT License / Kazuhiko Arase）。UTF-8対応を含む -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode_UTF8.js"></script>
+<!-- QRコード読み取りライブラリ jsQR（Apache-2.0 License / Cosmo Wolfe）v2.1 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
 <script>
   const PARTS_KEY = 'parts_replacement_memo_v2';
   const MEMO_KEY = 'general_memo_v1';
@@ -970,7 +1013,8 @@
 
   function memoKebabAction(action, id) {
     openKebabId = null;
-    if (action === 'qr') { openMemoQr(id); return; }
+    if (action === 'copy') { renderMemos(); copyMemoText(id); return; }
+    if (action === 'qr') { renderMemos(); openMemoQr(id); return; }
     if (action === 'edit') { memoEditingId = id; renderMemos(); return; }
     if (action === 'top' || action === 'bottom') {
       moveMemoIds([id], action);
@@ -1055,10 +1099,11 @@
         <div class="memo-kebab-wrap">
           <button type="button" class="memo-kebab" aria-label="メモ操作" onclick="toggleMemoKebab(event, ${r.id})">⋮</button>
           <div class="memo-kebab-menu ${openKebabId===r.id?'open':''}" onclick="event.stopPropagation()">
-            <button type="button" onclick="memoKebabAction('qr', ${r.id})">このメモのQRコードを生成</button>
             <button type="button" onclick="memoKebabAction('edit', ${r.id})">編集</button>
             <button type="button" onclick="memoKebabAction('top', ${r.id})">一番上に移動</button>
             <button type="button" onclick="memoKebabAction('bottom', ${r.id})">一番下に移動</button>
+            <button type="button" onclick="memoKebabAction('copy', ${r.id})">全文コピー</button>
+            <button type="button" onclick="memoKebabAction('qr', ${r.id})">QRコード生成</button>
             <button type="button" onclick="memoKebabAction('delete', ${r.id})">削除</button>
           </div>
         </div>`;
@@ -1090,6 +1135,153 @@
     }
     if (!categoryChecks.some(el => el.checked)) gray.checked = true;
   }
+
+  // ===== v2.1 全文コピー =====
+  let memoToastTimer = null;
+  function showMemoToast(message) {
+    const el = document.getElementById('memoToast');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(memoToastTimer);
+    memoToastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  }
+
+  async function copyMemoText(id) {
+    const r = memoRecords.find(x => x.id === id);
+    if (!r) return;
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(r.text);
+        ok = true;
+      }
+    } catch (_) {}
+    if (!ok) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = r.text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+      } catch (_) { ok = false; }
+    }
+    showMemoToast(ok ? 'コピーしました' : 'コピーできませんでした');
+  }
+
+  // ===== v2.1 QRコード読み取り（新規入力フォーム専用） =====
+  let qrScanStream = null;
+  let qrScanTimer = null;
+  let qrScanActive = false;
+
+  async function openQrScanner() {
+    if (qrScanActive) return;
+    if (typeof jsQR !== 'function') {
+      alert('QRコード読み取り機能を読み込めませんでした。インターネット接続を確認してください。');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('このブラウザではカメラを利用できません。\nHTTPSのURLで開いているか確認してください。');
+      return;
+    }
+    const status = document.getElementById('qrScanStatus');
+    const video = document.getElementById('qrScanVideo');
+    status.textContent = 'カメラを起動しています…';
+    document.getElementById('qrScanModal').style.display = 'flex';
+    qrScanActive = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' } },
+        audio: false
+      });
+      if (!qrScanActive) { stream.getTracks().forEach(t => t.stop()); return; }
+      qrScanStream = stream;
+      video.srcObject = stream;
+      await video.play();
+      status.textContent = 'QRコードを枠の中に写してください';
+      qrScanLoop();
+    } catch (error) {
+      console.error(error);
+      stopQrScanner();
+      let msg = 'カメラを起動できませんでした。';
+      if (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
+        msg = 'カメラの使用が許可されていません。\nブラウザの設定でカメラを許可してください。';
+      } else if (error && (error.name === 'NotFoundError' || error.name === 'OverconstrainedError')) {
+        msg = 'カメラが見つかりませんでした。';
+      } else if (error && error.name === 'NotReadableError') {
+        msg = 'カメラを使用できません。他のアプリがカメラを使用中かもしれません。';
+      }
+      alert(msg);
+    }
+  }
+
+  function qrScanLoop() {
+    if (!qrScanActive) return;
+    const video = document.getElementById('qrScanVideo');
+    const canvas = document.getElementById('qrScanCanvas');
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+      const scale = Math.min(1, 640 / video.videoWidth);
+      const w = Math.round(video.videoWidth * scale);
+      const h = Math.round(video.videoHeight * scale);
+      if (canvas.width !== w) canvas.width = w;
+      if (canvas.height !== h) canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      ctx.drawImage(video, 0, 0, w, h);
+      const img = ctx.getImageData(0, 0, w, h);
+      const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+      if (code && code.data) {
+        handleQrScanResult(code);
+        return;
+      }
+    }
+    qrScanTimer = setTimeout(qrScanLoop, 120);
+  }
+
+  function decodeQrText(code) {
+    // 日本語が文字化けしないよう、UTF-8として厳密に解釈できる場合はそちらを優先する。
+    try {
+      if (code.binaryData && window.TextDecoder) {
+        return new TextDecoder('utf-8', { fatal: true }).decode(new Uint8Array(code.binaryData));
+      }
+    } catch (_) {}
+    return code.data;
+  }
+
+  function handleQrScanResult(code) {
+    const text = decodeQrText(code);
+    stopQrScanner();
+    document.getElementById('qrScanModal').style.display = 'none';
+    const ta = document.getElementById('memoText');
+    // 既に入力がある場合は消さずに、末尾に改行して追加する。保存はユーザー自身がOKボタンで行う。
+    ta.value = ta.value.trim() ? ta.value.replace(/\s+$/, '') + '\n' + text : text;
+    if (navigator.vibrate) { try { navigator.vibrate(40); } catch (_) {} }
+    showMemoToast('読み取りました。内容を確認してOKで保存してください');
+  }
+
+  function stopQrScanner() {
+    qrScanActive = false;
+    clearTimeout(qrScanTimer);
+    qrScanTimer = null;
+    if (qrScanStream) {
+      qrScanStream.getTracks().forEach(t => t.stop());
+      qrScanStream = null;
+    }
+    const video = document.getElementById('qrScanVideo');
+    if (video) { video.pause(); video.srcObject = null; }
+  }
+
+  function closeQrScanner() {
+    stopQrScanner();
+    document.getElementById('qrScanModal').style.display = 'none';
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && qrScanActive) closeQrScanner();
+  });
 
   function openMemoQr(id) {
     const r = memoRecords.find(x => x.id === id);
