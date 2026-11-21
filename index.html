@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEMO-Q_v2.1.1</title>
-<!-- Version: v2.1.1 -->
+<title>MEMO-Q_v2.1.2</title>
+<!-- Version: v2.1.2 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -294,7 +294,7 @@
   .qr-read-link:active { color:var(--primary-color); }
   /* v2.1 QR読み取りモーダル */
   .qr-scan-video-wrap { position:relative; width:100%; aspect-ratio:1 / 1; background:#000; border-radius:8px; overflow:hidden; }
-  .qr-scan-video-wrap video { width:100%; height:100%; object-fit:cover; display:block; }
+  .qr-scan-video-wrap canvas { width:100%; height:100%; object-fit:cover; display:block; }
   .qr-scan-frame { position:absolute; inset:18%; border:3px solid rgba(255,255,255,.85); border-radius:10px; box-shadow:0 0 0 999px rgba(0,0,0,.28); pointer-events:none; }
   #qrScanStatus { margin:10px 0 12px; color:#555; font-size:.82rem; line-height:1.5; }
   /* v2.1 トースト */
@@ -311,7 +311,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.1.1</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.1.2</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -392,10 +392,10 @@
     <div class="qr-modal-box" onclick="event.stopPropagation()">
       <h3>QRコードから読み込み</h3>
       <div class="qr-scan-video-wrap">
-        <video id="qrScanVideo" playsinline muted autoplay></video>
+        <canvas id="qrScanCanvas" width="640" height="480"></canvas>
         <div class="qr-scan-frame"></div>
       </div>
-      <canvas id="qrScanCanvas" class="hidden"></canvas>
+      <video id="qrScanVideo" autoplay playsinline muted style="display:none"></video>
       <div id="qrScanStatus">カメラを起動しています…</div>
       <button type="button" class="qr-close-btn" onclick="closeQrScanner()">キャンセル</button>
     </div>
@@ -1174,8 +1174,11 @@
 
   // ===== v2.1 QRコード読み取り（新規入力フォーム専用） =====
   let qrScanStream = null;
-  let qrScanTimer = null;
+  let qrScanRaf = null;
   let qrScanActive = false;
+  let qrScanStartedAt = 0;
+  let qrScanGotFrame = false;
+  let qrScanLastDecode = 0;
 
   const JSQR_SOURCES = [
     'lib/jsQR.js',
@@ -1205,41 +1208,58 @@
     return jsQrLoading;
   }
 
+  function setQrScanStatus(text) {
+    const el = document.getElementById('qrScanStatus');
+    if (el) el.textContent = text;
+  }
+
   async function openQrScanner() {
     if (qrScanActive) return;
+    qrScanActive = true;
+    qrScanGotFrame = false;
+    document.getElementById('qrScanModal').style.display = 'flex';
+    setQrScanStatus('読み取りの準備をしています…');
+
     if (!(await ensureJsQr())) {
+      if (!qrScanActive) return;
+      closeQrScanner();
       alert('QRコード読み取り機能を読み込めませんでした。インターネット接続を確認してください。');
       return;
     }
+    if (!qrScanActive) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      closeQrScanner();
       alert('このブラウザではカメラを利用できません。\nHTTPSのURLで開いているか確認してください。');
       return;
     }
-    const status = document.getElementById('qrScanStatus');
+
     const video = document.getElementById('qrScanVideo');
-    status.textContent = 'カメラを起動しています…';
-    document.getElementById('qrScanModal').style.display = 'flex';
-    qrScanActive = true;
+    setQrScanStatus('カメラの許可を待っています…（表示された確認で「許可」を押してください）');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } },
         audio: false
       });
       if (!qrScanActive) { stream.getTracks().forEach(t => t.stop()); return; }
       qrScanStream = stream;
+      setQrScanStatus('カメラの映像を待っています…');
       video.srcObject = stream;
-      await video.play();
-      status.textContent = 'QRコードを枠の中に写してください';
-      qrScanLoop();
+      // play() の完了を待たない。映像が届いたかどうかは、描画ループ側で確認する。
+      const p = video.play();
+      if (p && p.catch) p.catch(e => console.error('video.play', e));
+      qrScanStartedAt = Date.now();
+      qrScanLastDecode = 0;
+      qrScanRaf = requestAnimationFrame(qrScanLoop);
     } catch (error) {
       console.error(error);
-      stopQrScanner();
-      let msg = 'カメラを起動できませんでした。';
-      if (error && (error.name === 'NotAllowedError' || error.name === 'SecurityError')) {
+      const name = (error && error.name) ? error.name : 'Error';
+      closeQrScanner();
+      let msg = 'カメラを起動できませんでした。（' + name + '）';
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
         msg = 'カメラの使用が許可されていません。\nブラウザの設定でカメラを許可してください。';
-      } else if (error && (error.name === 'NotFoundError' || error.name === 'OverconstrainedError')) {
-        msg = 'カメラが見つかりませんでした。';
-      } else if (error && error.name === 'NotReadableError') {
+      } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+        msg = 'カメラが見つかりませんでした。（' + name + '）';
+      } else if (name === 'NotReadableError') {
         msg = 'カメラを使用できません。他のアプリがカメラを使用中かもしれません。';
       }
       alert(msg);
@@ -1250,22 +1270,32 @@
     if (!qrScanActive) return;
     const video = document.getElementById('qrScanVideo');
     const canvas = document.getElementById('qrScanCanvas');
-    if (video.readyState >= 2 && video.videoWidth > 0) {
+    if (video.videoWidth > 0 && video.videoHeight > 0 && video.readyState >= 2) {
       const scale = Math.min(1, 640 / video.videoWidth);
       const w = Math.round(video.videoWidth * scale);
       const h = Math.round(video.videoHeight * scale);
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(video, 0, 0, w, h);
-      const img = ctx.getImageData(0, 0, w, h);
-      const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
-      if (code && code.data) {
-        handleQrScanResult(code);
-        return;
+      ctx.drawImage(video, 0, 0, w, h);   // 画面に見える映像も、読み取る画像も、このcanvas
+      if (!qrScanGotFrame) {
+        qrScanGotFrame = true;
+        setQrScanStatus('QRコードを枠の中に写してください');
       }
+      const now = Date.now();
+      if (now - qrScanLastDecode > 120) {
+        qrScanLastDecode = now;
+        const img = ctx.getImageData(0, 0, w, h);
+        const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+        if (code && code.data) {
+          handleQrScanResult(code);
+          return;
+        }
+      }
+    } else if (!qrScanGotFrame && Date.now() - qrScanStartedAt > 8000) {
+      setQrScanStatus('映像が届きません。他のアプリがカメラを使っていないか確認して、いったん閉じてからもう一度お試しください。');
     }
-    qrScanTimer = setTimeout(qrScanLoop, 120);
+    qrScanRaf = requestAnimationFrame(qrScanLoop);
   }
 
   function decodeQrText(code) {
@@ -1291,14 +1321,14 @@
 
   function stopQrScanner() {
     qrScanActive = false;
-    clearTimeout(qrScanTimer);
-    qrScanTimer = null;
+    if (qrScanRaf) cancelAnimationFrame(qrScanRaf);
+    qrScanRaf = null;
     if (qrScanStream) {
       qrScanStream.getTracks().forEach(t => t.stop());
       qrScanStream = null;
     }
     const video = document.getElementById('qrScanVideo');
-    if (video) { video.pause(); video.srcObject = null; }
+    if (video) { try { video.pause(); } catch (_) {} video.srcObject = null; }
   }
 
   function closeQrScanner() {
@@ -1306,8 +1336,9 @@
     document.getElementById('qrScanModal').style.display = 'none';
   }
 
+  // カメラの映像が届いた後で、アプリが裏に回ったときだけ止める（許可確認の表示中は止めない）
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && qrScanActive) closeQrScanner();
+    if (document.hidden && qrScanActive && qrScanStream) closeQrScanner();
   });
 
   function openMemoQr(id) {
