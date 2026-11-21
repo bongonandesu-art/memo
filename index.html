@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>メモ v1.2</title>
-<!-- Version: v1.2 -->
+<title>メモ v1.3</title>
+<!-- Version: v1.3 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -274,7 +274,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.2</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.3</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -353,6 +353,7 @@
   const PARTS_KEY = 'parts_replacement_memo_v2';
   const MEMO_KEY = 'general_memo_v1';
   const THEME_KEY = 'parts_memo_theme';
+  const INTRO_SEEN_KEY = 'memo_v1_intro_seen';
 
   const PART_OPTIONS = { '減圧弁': ['S', 'W'], 'カラン': ['樹脂', 'ゴールド', 'シルバー'] };
   const KNOWN_MAKERS = ['--', 'ホシザキ', 'ニットク', 'ボクソン'];
