@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモ v1.1</title>
+<!-- Version: v1.1 -->
+<style>
+  :root {
+    --bg-color: #f4f7f6;
+    --text-color: #333;
+    --card-bg: #fff;
+    --card-shadow: rgba(0,0,0,0.1);
+    --input-bg: #fff;
+    --input-border: #ccc;
+    --item-box-bg: #f9fbfb;
+    --item-box-border: #dce4e8;
+    --th-bg: #eef2f5;
+    --td-border: #ddd;
+    --done-bg: #e9ecef;
+    --done-text: #888;
+    --primary-color: #0066cc;
+    --primary-active: #004c99;
+    --sub-text: #666;
+    --edit-bg: #fffdf0;
+  }
+
+  body.dark-mode {
+    --bg-color: #121212;
+    --text-color: #e0e0e0;
+    --card-bg: #1e1e1e;
+    --card-shadow: rgba(0,0,0,0.5);
+    --input-bg: #2c2c2c;
+    --input-border: #444;
+    --item-box-bg: #262626;
+    --item-box-border: #3a3a3a;
+    --th-bg: #2a2f35;
+    --td-border: #333;
+    --done-bg: #252525;
+    --done-text: #666;
+    --primary-color: #3b82f6;
+    --primary-active: #2563eb;
+    --sub-text: #aaa;
+    --edit-bg: #2a281e;
+  }
+
+  body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 68px 12px 12px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+  }
+
+  .top-bar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+    display: flex; justify-content: space-between; align-items: center; gap: 7px;
+    padding: 8px 12px; box-sizing: border-box;
+    background: var(--bg-color); box-shadow: 0 2px 5px var(--card-shadow);
+  }
+  .app-title-button {
+    flex: 1 1 auto; min-width: 0; padding: 7px 2px; border: 0;
+    background: transparent; color: var(--text-color); text-align: left;
+    font-size: 1.08rem; font-weight: 800; letter-spacing: .02em;
+    white-space: nowrap; cursor: pointer;
+  }
+  .nav-buttons { display: flex; gap: 6px; flex: 1; min-width: 0; }
+  .nav-btn {
+    flex: 1; min-width: 0; padding: 9px 5px; font-size: 0.88rem; font-weight: bold;
+    border: 2px solid var(--primary-color); border-radius: 8px;
+    background-color: var(--card-bg); color: var(--primary-color); cursor: pointer;
+  }
+  .nav-btn.active { background-color: var(--primary-color); color: #fff; }
+
+  .theme-btn, .hamburger-btn {
+    flex: 0 0 auto; width: 38px; height: 38px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; background-color: var(--card-bg); color: var(--text-color);
+    border: 1px solid var(--input-border); border-radius: 10px; cursor: pointer;
+  }
+  .selection-toggle {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 5px;
+    border: 1px solid var(--input-border); border-radius: 18px;
+    background: var(--card-bg); color: var(--sub-text); padding: 5px 7px;
+    font-size: 0.72rem; cursor: pointer; white-space: nowrap;
+  }
+  .toggle-track { width: 30px; height: 17px; border-radius: 12px; background: #aab0b5; position: relative; transition: background .15s; }
+  .toggle-track::after { content: ''; position: absolute; width: 13px; height: 13px; left: 2px; top: 2px; border-radius: 50%; background: white; transition: transform .15s; }
+  .selection-toggle[aria-pressed="true"] { color: var(--primary-color); border-color: var(--primary-color); }
+  .selection-toggle[aria-pressed="true"] .toggle-track { background: var(--primary-color); }
+  .selection-toggle[aria-pressed="true"] .toggle-track::after { transform: translateX(13px); }
+  .hamburger-wrap { position: relative; flex: 0 0 auto; }
+  .hamburger-btn { position: relative; }
+  .filter-indicator { display: none; position: absolute; right: 4px; bottom: 3px; font-size: 0.55rem; line-height: 1; }
+  .hamburger-btn.filtered .filter-indicator { display: block; }
+  .hamburger-menu {
+    display: none; position: absolute; top: 45px; right: 0; z-index: 950;
+    width: min(260px, calc(100vw - 24px)); padding: 10px;
+    background: var(--card-bg); color: var(--text-color); border: 1px solid var(--input-border);
+    border-radius: 10px; box-shadow: 0 5px 18px rgba(0,0,0,.22);
+  }
+  .hamburger-menu.open { display: block; }
+  .menu-section-title { font-size: .72rem; color: var(--sub-text); margin: 3px 2px 7px; }
+  .filter-options { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; margin-bottom: 8px; }
+  .filter-dot-btn { min-height: 32px; padding: 4px 6px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text-color); font-size: .78rem; cursor: pointer; white-space: nowrap; }
+  .filter-dot-btn .filter-symbol { font-size: 1rem; line-height: 1; }
+  .filter-dot-btn.active { border-color: var(--primary-color); background: var(--item-box-bg); }
+  .menu-action { display: block; width: 100%; text-align: left; padding: 9px 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text-color); font-size: .9rem; cursor: pointer; }
+  .menu-action:active { background: var(--item-box-bg); }
+  .menu-action:disabled { color: var(--done-text); opacity: .55; cursor: default; }
+  .menu-divider { height: 1px; background: var(--td-border); margin: 5px 0; }
+
+  h2 { font-size: 1.05rem; border-left: 4px solid var(--primary-color); padding-left: 8px; margin: 10px 0; }
+  .card {
+    background: var(--card-bg); padding: 14px; border-radius: 8px;
+    box-shadow: 0 2px 4px var(--card-shadow); margin-bottom: 18px;
+  }
+
+  .form-group { margin-bottom: 10px; }
+  label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; color: var(--sub-text); }
+
+  input[type="text"], input[type="tel"], input[type="date"], input[type="number"], select, textarea {
+    width: 100%; padding: 7px; box-sizing: border-box;
+    background-color: var(--input-bg); color: var(--text-color);
+    border: 1px solid var(--input-border); border-radius: 4px; font-size: 0.92rem;
+  }
+  textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+
+  .row { display: flex; gap: 6px; }
+  .row > div { flex: 1; }
+
+  .part-block {
+    background-color: var(--item-box-bg); border: 1px solid var(--item-box-border);
+    border-radius: 6px; padding: 9px; margin-bottom: 8px;
+  }
+  .part-block-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 6px; font-size: 0.82rem; font-weight: bold; color: var(--primary-color);
+  }
+  .btn-remove-item {
+    background: #dc3545; color: white; border: none; border-radius: 4px;
+    padding: 2px 7px; font-size: 0.75rem; cursor: pointer;
+  }
+  .custom-maker-input { margin-top: 5px; display: none; }
+
+  .btn-add-item {
+    width: 100%; padding: 7px; background-color: transparent; color: var(--primary-color);
+    border: 1px dashed var(--primary-color); border-radius: 4px;
+    font-size: 0.88rem; font-weight: bold; cursor: pointer; margin-bottom: 10px;
+  }
+
+  button.main-btn {
+    width: 100%; padding: 10px; background-color: var(--primary-color); color: white;
+    border: none; border-radius: 4px; font-size: 0.95rem; font-weight: bold; cursor: pointer;
+  }
+  button.sub-cancel-btn {
+    width: 100%; padding: 10px; background-color: #6c757d; color: white;
+    border: none; border-radius: 4px; font-size: 0.95rem; font-weight: bold; cursor: pointer;
+  }
+  .btn-csv { background-color: #28a745 !important; margin-top: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th, td { border: 1px solid var(--td-border); padding: 6px 5px; text-align: left; vertical-align: middle; }
+  th { background-color: var(--th-bg); white-space: nowrap; }
+  tr { background-color: var(--card-bg); color: var(--text-color); }
+  tr.done { background-color: var(--done-bg); color: var(--done-text); text-decoration: line-through; }
+  tr.editing-row { background-color: var(--edit-bg); text-decoration: none; }
+  tr.dragging-active { outline: 2px solid var(--primary-color); background-color: var(--item-box-bg); }
+
+  .sub-info { color: var(--sub-text); font-size: 0.76rem; }
+  tr.done .sub-info { color: var(--done-text); }
+  .item-line { padding: 2px 0; border-bottom: 1px dashed var(--td-border); }
+  .item-line:last-child { border-bottom: none; }
+  input[type="checkbox"] { transform: scale(1.25); cursor: pointer; }
+
+  .drag-handle {
+    cursor: grab; font-size: 1.2rem; color: var(--sub-text);
+    user-select: none; -webkit-user-select: none; touch-action: none;
+    text-align: center; padding: 6px 4px;
+  }
+  .drag-handle:active { cursor: grabbing; color: var(--primary-color); }
+  .dragging-active { opacity: .55; outline: 2px solid var(--primary-color); }
+  body.drag-in-progress { user-select: none; -webkit-user-select: none; }
+
+  .action-select { padding: 4px; font-size: 0.78rem; width: auto; min-width: 60px; }
+  .btn-ok { background: #28a745; color: white; border: none; border-radius: 4px; padding: 6px 8px; font-size: 0.8rem; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 4px; }
+  .btn-cancel { background: #6c757d; color: white; border: none; border-radius: 4px; padding: 5px 8px; font-size: 0.78rem; cursor: pointer; width: 100%; }
+
+  /* メモ色選択・表示 */
+  .color-picker { display: flex; gap: 10px; align-items: center; margin-top: 4px; }
+  .color-dot-btn {
+    width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent;
+    display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+    background: var(--item-box-bg); cursor: pointer; padding: 0;
+  }
+  .color-dot-btn.selected { border-color: var(--text-color); transform: scale(1.1); }
+  .sort-btn {
+    background: none; border: none; color: inherit; font-weight: bold;
+    font-size: 0.82rem; cursor: pointer; padding: 0; white-space: nowrap;
+  }
+  .color-filter-select {
+    padding: 2px 4px; font-size: 0.95rem; width: auto; text-align: center; font-weight: bold;
+  }
+  .memo-text-cell { cursor: pointer; }
+  .memo-list { display: flex; flex-direction: column; gap: 8px; }
+  .memo-first-use-hint {
+    min-height: 42vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box; text-align: center;
+    color: var(--sub-text); font-size: .9rem; line-height: 1.7;
+  }
+  .memo-card {
+    display: grid; grid-template-columns: 26px 58px minmax(0,1fr) 32px;
+    align-items: stretch; gap: 7px; padding: 9px 7px;
+    background: var(--card-bg); border: 1px solid var(--td-border); border-radius: 9px;
+    box-shadow: 0 1px 3px var(--card-shadow); color: var(--text-color);
+    min-height: 62px; box-sizing: border-box;
+  }
+  .memo-card.done { background: var(--done-bg); color: var(--done-text); }
+  .memo-drag-handle { display: flex; align-items: center; justify-content: center; color: var(--sub-text); font-size: 1.25rem; cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none; }
+  .memo-meta { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 4px; min-width: 0; }
+  .memo-meta-top, .memo-meta-colors { display: flex; align-items: center; gap: 5px; min-height: 16px; white-space: nowrap; }
+  .memo-meta-top { font-size: .68rem; line-height: 1; color: var(--sub-text); }
+  .memo-meta-top input[type="checkbox"] { margin: 0 1px 0 2px; transform: scale(1.1); }
+  .memo-card.selection-mode .memo-meta input[type="checkbox"] { pointer-events: none; }
+  .memo-color-dot { font-size: 1rem; line-height: 1; }
+  .memo-date { color: var(--sub-text); font-size: .68rem; line-height: 1; white-space: nowrap; }
+  .memo-text { align-self: center; min-width: 0; font-size: .9rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; cursor: pointer; }
+  .memo-card.done .memo-text { text-decoration: line-through; }
+  .memo-kebab-wrap { display: flex; align-items: center; justify-content: center; position: relative; }
+  .memo-kebab { border: 0; background: transparent; color: var(--sub-text); font-size: 1.45rem; line-height: 1; width: 30px; height: 40px; padding: 0; cursor: pointer; }
+  .memo-kebab-menu { display: none; position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 30; min-width: 150px; padding: 5px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--card-bg); box-shadow: 0 4px 14px rgba(0,0,0,.22); }
+  .memo-kebab-menu.open { display: block; }
+  .memo-kebab-menu button { display: block; width: 100%; padding: 9px 8px; border: 0; border-radius: 5px; text-align: left; color: var(--text-color); background: transparent; font-size: .85rem; }
+  .memo-card.selection-mode { background: var(--item-box-bg); border: 2px dashed var(--primary-color); padding: 8px 6px; }
+  .memo-card.selected { border: 2px solid #3b82f6; background: rgba(59,130,246,.09); padding: 8px 6px; }
+  .memo-card.selection-mode .memo-kebab-wrap { display: none; }
+  .memo-card.selection-mode .memo-drag-handle { opacity: .35; cursor: default; }
+  .memo-edit-panel { padding: 10px; border: 1px solid var(--primary-color); border-radius: 8px; background: var(--edit-bg); }
+  .memo-edit-actions { display: flex; gap: 7px; margin-top: 8px; }
+  .memo-edit-actions button { flex: 1; }
+  .memo-sort-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .memo-sort-row h2 { flex: 1; }
+  .icon-action { border: 0; background: transparent; color: var(--primary-color); font-size: 1.05rem; padding: 4px 6px; cursor: pointer; }
+  .icon-action.delete { color: #dc3545; }
+
+  /* ポップアップモーダル */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    align-items: center; justify-content: center; z-index: 1000; padding: 16px;
+  }
+  .modal-box {
+    background: var(--card-bg); color: var(--text-color); padding: 18px;
+    border-radius: 8px; max-width: 420px; width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .modal-content {
+    white-space: pre-wrap; word-break: break-all; max-height: 60vh;
+    overflow-y: auto; margin: 12px 0; line-height: 1.5; font-size: 0.95rem;
+  }
+  .input-panel { margin-bottom:14px; }
+  .label-picker { display:flex; flex-wrap:wrap; gap:5px 9px; align-items:center; }
+  .label-choice { display:inline-flex; align-items:center; gap:4px; border:1px solid transparent; border-radius:6px; padding:4px 5px; background:transparent; color:var(--text-color); font-size:.78rem; cursor:pointer; white-space:nowrap; }
+  .label-choice.selected { border-color:var(--primary-color); background:var(--item-box-bg); }
+  .label-choice .dot { font-size:1rem; line-height:1; }
+  .memo-meta-top, .memo-meta-colors { flex-wrap: nowrap; gap: 5px; }
+  .memo-meta-colors { min-height: 16px; }
+  .memo-settings-fields { display:flex; flex-direction:column; gap:9px; margin:14px 0; }
+  .memo-settings-fields .row { align-items:center; }
+  .memo-settings-fields label { width:78px; flex:0 0 78px; margin:0; }
+  .modal-actions { display:flex; gap:8px; }
+  .modal-actions button { flex:1; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+  <div class="top-bar" id="topBar">
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.1</button>
+    <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
+    <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
+      <span>選択</span><span class="toggle-track"></span>
+    </button>
+    <div class="hamburger-wrap">
+      <button type="button" class="hamburger-btn" id="hamburgerButton" onclick="toggleHamburgerMenu(event)" aria-label="メニュー">☰<span class="filter-indicator" id="filterIndicator">●</span></button>
+      <div class="hamburger-menu" id="hamburgerMenu">
+        <div class="menu-section-title">色で絞り込み</div>
+        <div class="filter-options" id="memoFilterOptions"></div>
+        <div class="menu-divider"></div>
+        <button type="button" class="menu-action" id="bulkMoveTopBtn" onclick="bulkMoveMemos('top')" disabled>一番上に移動</button>
+        <button type="button" class="menu-action" id="bulkMoveBottomBtn" onclick="bulkMoveMemos('bottom')" disabled>一番下に移動</button>
+        <button type="button" class="menu-action" id="bulkDeleteBtn" onclick="bulkDeleteMemos()" disabled>削除</button>
+        <div class="menu-divider"></div>
+        <button type="button" class="menu-action" onclick="openMemoLabelSettings()">設定：ラベル設定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メモ -->
+  <div id="viewMemo">
+    <div id="memoInputPanel" class="input-panel hidden">
+    <h2>新規入力（メモ）</h2>
+    <div class="card">
+      <div class="row form-group">
+        <div style="flex: 1;">
+          <label>日付</label>
+          <input type="date" id="memoDate">
+        </div>
+        <div style="flex: 1.5;">
+          <label>ラベル</label>
+          <div class="color-picker" id="memoColorPicker"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>テキスト</label>
+        <textarea id="memoText" placeholder="メモ内容を入力..."></textarea>
+      </div>
+      <div class="row">
+        <div><button type="button" class="main-btn" onclick="addMemoRecord()">OK</button></div>
+        <div><button type="button" class="sub-cancel-btn" onclick="cancelMemoInput()">キャンセル</button></div>
+      </div>
+    </div>
+    </div>
+
+    <div class="memo-sort-row">
+      <h2>蓄積エリア（メモ一覧）</h2>
+      <button type="button" class="sort-btn" id="memoDateSortBtn" onclick="toggleMemoDateSort()">日付 ▼</button>
+    </div>
+    <div class="memo-list" id="memoListBody"></div>
+  </div>
+
+  <!-- 全文表示ポップアップ -->
+  <div class="modal-overlay" id="memoModal" onclick="closeMemoModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong id="modalTitle">メモ詳細</strong>
+        <button type="button" class="btn-cancel" style="width:auto;" onclick="closeMemoModal()">閉じる</button>
+      </div>
+      <div class="modal-content" id="modalBodyText"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="memoLabelSettingsModal" onclick="closeMemoLabelSettings()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+      <strong>ラベル設定</strong>
+      <div class="memo-settings-fields" id="memoLabelSettingsFields"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn-ok" onclick="saveMemoLabelSettings()">保存</button>
+        <button type="button" class="btn-cancel" onclick="closeMemoLabelSettings()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const PARTS_KEY = 'parts_replacement_memo_v2';
+  const MEMO_KEY = 'general_memo_v1';
+  const THEME_KEY = 'parts_memo_theme';
+
+  const PART_OPTIONS = { '減圧弁': ['S', 'W'], 'カラン': ['樹脂', 'ゴールド', 'シルバー'] };
+  const KNOWN_MAKERS = ['--', 'ホシザキ', 'ニットク', 'ボクソン'];
+
+  const MEMO_COLORS = [
+    { id: 'cyan',   hex: '#00bcd4' },
+    { id: 'yellow', hex: '#eab308' },
+    { id: 'pink',   hex: '#ec4899' },
+    { id: 'purple', hex: '#a855f7' }
+  ];
+  const UNCLASSIFIED = { id: 'gray', name: '未分類', hex: '#9ca3af' };
+  const LABEL_NAMES_KEY = 'memo_label_names_v1';
+  const INTRO_SEEN_KEY = 'memo_v1_intro_seen';
+  const DEFAULT_LABEL_NAMES = { cyan:'分類1', yellow:'分類2', pink:'分類3', purple:'分類4' };
+  let memoLabelNames = { ...DEFAULT_LABEL_NAMES };
+
+
+  let partsRecords = [];
+  let partsEditingId = null;
+
+  let memoRecords = [];
+  let memoEditingId = null;
+  let selectedNewMemoColors = [];
+  let memoFilterColor = 'all';
+  let memoSortOrder = 'desc';
+  let selectionMode = false;
+  let selectedMemoIds = new Set();
+  let currentMode = 'parts';
+  let openKebabId = null;
+
+  window.onload = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    document.getElementById('memoDate').value = today;
+
+    if (localStorage.getItem(THEME_KEY) === 'dark') {
+      document.body.classList.add('dark-mode');
+      document.getElementById('themeToggle').textContent = '🌙';
+    }
+
+    const savedNames = localStorage.getItem(LABEL_NAMES_KEY);
+    if (savedNames) {
+      try { memoLabelNames = { ...DEFAULT_LABEL_NAMES, ...JSON.parse(savedNames) }; } catch (_) {}
+    }
+    const savedMemos = localStorage.getItem(MEMO_KEY);
+    if (savedMemos) {
+      memoRecords = JSON.parse(savedMemos);
+      migrateMemoLabels();
+    }
+    if (memoRecords.length > 0) localStorage.setItem(INTRO_SEEN_KEY, '1');
+
+    renderNewMemoColorPicker();
+    renderMemoFilterOptions();
+    updateSelectionToggle();
+    updateHamburgerFilterIndicator();
+    updateMemoSortBtnLabel();
+
+    setupDragAndDrop('memoListBody', () => memoEditingId !== null, ids => {
+      memoSortOrder = 'manual';
+      updateMemoSortBtnLabel();
+      const reorderedSubset = ids.map(id => memoRecords.find(r => r.id === id)).filter(Boolean);
+      const idSet = new Set(ids);
+      let subIdx = 0;
+      memoRecords = memoRecords.map(r => idSet.has(r.id) ? reorderedSubset[subIdx++] : r);
+      localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
+      renderMemos();
+    });
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.hamburger-wrap')) closeHamburgerMenu();
+      if (!e.target.closest('.memo-kebab-wrap')) closeMemoKebabs();
+    });
+    switchMode('memo');
+  };
+
+  function switchMode(mode = 'memo') {
+    currentMode = 'memo';
+    document.getElementById('viewMemo').classList.remove('hidden');
+    document.getElementById('memoInputPanel').classList.add('hidden');
+    document.getElementById('appTitleButton').setAttribute('aria-expanded', 'false');
+    document.getElementById('selectionModeToggle').classList.remove('hidden');
+    document.getElementById('hamburgerButton').classList.remove('hidden');
+    closeHamburgerMenu();
+    renderMemos();
+  }
+
+  function toggleSelectionMode() {
+    if (selectionMode) clearSelectionMode();
+    else {
+      selectionMode = true;
+      selectedMemoIds.clear();
+      updateSelectionToggle();
+      updateBulkActionButtons();
+      renderMemos();
+    }
+  }
+
+  function clearSelectionMode() {
+    selectionMode = false;
+    selectedMemoIds.clear();
+    updateSelectionToggle();
+    updateBulkActionButtons();
+    if (currentMode === 'memo') renderMemos();
+  }
+
+  function updateSelectionToggle() {
+    const btn = document.getElementById('selectionModeToggle');
+    if (!btn) return;
+    btn.setAttribute('aria-pressed', selectionMode ? 'true' : 'false');
+  }
+
+  function updateBulkActionButtons() {
+    const hasSelection = selectedMemoIds.size > 0;
+    ['bulkMoveTopBtn','bulkMoveBottomBtn','bulkDeleteBtn'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = !hasSelection;
+    });
+  }
+
+  function toggleHamburgerMenu(event) {
+    event.stopPropagation();
+    document.getElementById('hamburgerMenu').classList.toggle('open');
+  }
+
+  function closeHamburgerMenu() {
+    const menu = document.getElementById('hamburgerMenu');
+    if (menu) menu.classList.remove('open');
+  }
+
+  function renderMemoFilterOptions() {
+    const box = document.getElementById('memoFilterOptions');
+    const allActive = memoFilterColor === 'all';
+    const all = `<button type="button" class="filter-dot-btn ${allActive?'active':''}" onclick="changeMemoColorFilter('all')" title="全色"><span class="filter-symbol">■</span><span>(全色)</span></button>`;
+    const gray = `<button type="button" class="filter-dot-btn ${memoFilterColor==='gray'?'active':''}" onclick="changeMemoColorFilter('gray')" title="未分類"><span class="filter-symbol" style="color:${UNCLASSIFIED.hex}">●</span><span>(未分類)</span></button>`;
+    box.innerHTML = all + gray + MEMO_COLORS.map(c => `<button type="button" class="filter-dot-btn ${memoFilterColor===c.id?'active':''}" onclick="changeMemoColorFilter('${c.id}')" title="${escapeHtml(labelName(c.id))}"><span class="filter-symbol" style="color:${c.hex}">●</span><span>(${escapeHtml(labelName(c.id))})</span></button>`).join('');
+  }
+
+  function updateHamburgerFilterIndicator() {
+    const btn = document.getElementById('hamburgerButton');
+    const dot = document.getElementById('filterIndicator');
+    if (!btn || !dot) return;
+    const c = memoFilterColor === 'gray' ? UNCLASSIFIED : MEMO_COLORS.find(x => x.id === memoFilterColor);
+    btn.classList.toggle('filtered', !!c);
+    dot.style.color = c ? c.hex : 'transparent';
+  }
+
+  function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+    document.getElementById('themeToggle').textContent = isDark ? '🌙' : '☀️';
+  }
+
+  function parsePartName(partName) {
+    const m = String(partName || '').match(/^(.+?)（(.+?)）$/);
+    if (m && PART_OPTIONS[m[1]]) return { cat: m[1], sub: m[2] };
+    return { cat: '減圧弁', sub: 'S' };
+  }
+
+  function addItemBlock(containerId, keepFirst = false, initData = null) {
+    const container = document.getElementById(containerId);
+    const index = container.children.length + 1;
+    const parsed = initData ? parsePartName(initData.partName) : { cat: '減圧弁', sub: 'S' };
+    const subList = PART_OPTIONS[parsed.cat] || ['S', 'W'];
+    const countVal = initData ? initData.count : 1;
+    const makerVal = initData ? (initData.maker || '--') : '--';
+    const isCustom = !KNOWN_MAKERS.includes(makerVal);
+    const makerSel = isCustom ? 'その他' : makerVal;
+    const customTxt = isCustom ? makerVal : '';
+    const showRemove = keepFirst ? (index > 1) : true;
+
+    const div = document.createElement('div');
+    div.className = 'part-block';
+    div.innerHTML = `
+      <div class="part-block-header">
+        <span class="block-title">部材 ${index}</span>
+        ${showRemove ? `<button type="button" class="btn-remove-item" onclick="removeItemBlock(this, '${containerId}')">× 削除</button>` : ''}
+      </div>
+      <div class="row form-group">
+        <div style="flex:1.2;"><label>カテゴリ</label>
+          <select class="part-cat" onchange="updateSubParts(this)">
+            <option value="減圧弁" ${parsed.cat==='減圧弁'?'selected':''}>減圧弁</option>
+            <option value="カラン" ${parsed.cat==='カラン'?'selected':''}>カラン</option>
+          </select>
+        </div>
+        <div style="flex:1.2;"><label>詳細</label>
+          <select class="part-sub">${subList.map(o=>`<option value="${o}" ${o===parsed.sub?'selected':''}>${o}</option>`).join('')}</select>
+        </div>
+        <div style="flex:0.7;"><label>個数</label>
+          <input type="number" class="part-count" value="${countVal}" min="1">
+        </div>
+      </div>
+      <div><label>メーカー</label>
+        <select class="part-maker" onchange="toggleCustomMaker(this)">
+          <option value="--" ${makerSel==='--'?'selected':''}>--</option>
+          <option value="ホシザキ" ${makerSel==='ホシザキ'?'selected':''}>ホシザキ</option>
+          <option value="ニットク" ${makerSel==='ニットク'?'selected':''}>ニットク</option>
+          <option value="ボクソン" ${makerSel==='ボクソン'?'selected':''}>ボクソン</option>
+          <option value="その他" ${makerSel==='その他'?'selected':''}>その他（手入力）</option>
+        </select>
+        <input type="text" class="custom-maker-input" placeholder="メーカー名を入力" value="${escapeHtml(customTxt)}" style="display:${isCustom?'block':'none'};">
+      </div>`;
+    container.appendChild(div);
+  }
+
+  function removeItemBlock(btn, containerId) {
+    btn.closest('.part-block').remove();
+    document.querySelectorAll(`#${containerId} .block-title`).forEach((el, idx) => el.textContent = `部材 ${idx + 1}`);
+  }
+
+  function updateSubParts(catSelect) {
+    const subSelect = catSelect.closest('.part-block').querySelector('.part-sub');
+    subSelect.innerHTML = (PART_OPTIONS[catSelect.value] || []).map(o => `<option value="${o}">${o}</option>`).join('');
+  }
+
+  function toggleCustomMaker(makerSelect) {
+    const inp = makerSelect.closest('.part-block').querySelector('.custom-maker-input');
+    inp.style.display = makerSelect.value === 'その他' ? 'block' : 'none';
+    if (makerSelect.value !== 'その他') inp.value = '';
+  }
+
+  function collectItems(containerId) {
+    return [...document.querySelectorAll(`#${containerId} .part-block`)].map(b => {
+      const mSel = b.querySelector('.part-maker').value;
+      const cTxt = b.querySelector('.custom-maker-input').value.trim();
+      return {
+        partName: `${b.querySelector('.part-cat').value}（${b.querySelector('.part-sub').value}）`,
+        count: b.querySelector('.part-count').value || 1,
+        maker: mSel === 'その他' ? (cTxt || 'その他') : mSel
+      };
+    });
+  }
+
+  function toggleInputPanel(mode = 'memo') {
+    const panel = document.getElementById('memoInputPanel');
+    const opening = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden', !opening);
+    document.getElementById('appTitleButton').setAttribute('aria-expanded', String(opening));
+  }
+
+  function closeInputPanel(mode = 'memo') {
+    document.getElementById('memoInputPanel').classList.add('hidden');
+    document.getElementById('appTitleButton').setAttribute('aria-expanded', 'false');
+  }
+
+  function cancelPartsInput() {
+    document.getElementById('shopName').value = '';
+    document.getElementById('shopTel').value = '';
+    document.getElementById('workDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('itemsContainer').innerHTML = '';
+    addItemBlock('itemsContainer', true);
+    closeInputPanel('parts');
+  }
+
+  function addPartsRecord() {
+    const shop = document.getElementById('shopName').value.trim();
+    const date = document.getElementById('workDate').value;
+    if (!shop || !date) return alert('店名と日付を入力してください');
+    partsRecords.unshift({
+      id: Date.now(), done: false, date, shop,
+      tel: document.getElementById('shopTel').value.trim(),
+      items: collectItems('itemsContainer')
+    });
+    document.getElementById('shopName').value = '';
+    document.getElementById('shopTel').value = '';
+    document.getElementById('itemsContainer').innerHTML = '';
+    addItemBlock('itemsContainer', true);
+    partsEditingId = null;
+    localStorage.setItem(PARTS_KEY, JSON.stringify(partsRecords));
+    closeInputPanel('parts');
+    renderParts();
+  }
+  function togglePartsDone(id) {
+    const t = partsRecords.find(r => r.id === id);
+    if (t) { t.done = !t.done; localStorage.setItem(PARTS_KEY, JSON.stringify(partsRecords)); renderParts(); }
+  }
+
+  function handlePartsAction(sel, id) {
+    const act = sel.value; sel.value = '';
+    if (act === 'edit') { partsEditingId = id; renderParts(); }
+    if (act === 'delete') deletePartsRecord(id);
+  }
+
+  function deletePartsRecord(id) {
+    if (confirm('この行を削除しますか？')) {
+      partsRecords = partsRecords.filter(r => r.id !== id);
+      if (partsEditingId === id) partsEditingId = null;
+      localStorage.setItem(PARTS_KEY, JSON.stringify(partsRecords));
+      renderParts();
+    }
+  }
+
+  function savePartsEdit(id) {
+    const items = collectItems(`editParts_${id}`);
+    if (items.length === 0) return deletePartsRecord(id);
+    const shop = document.getElementById(`editShop_${id}`).value.trim();
+    const date = document.getElementById(`editDate_${id}`).value;
+    if (!shop || !date) return alert('店名と日付を入力してください');
+    const idx = partsRecords.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      const updated = { ...partsRecords[idx], shop, date, tel: document.getElementById(`editTel_${id}`).value.trim(), items };
+      partsRecords.splice(idx, 1);
+      partsRecords.unshift(updated);
+    }
+    partsEditingId = null;
+    localStorage.setItem(PARTS_KEY, JSON.stringify(partsRecords));
+    renderParts();
+  }
+
+  function renderParts() {
+    const tbody = document.getElementById('partsListBody');
+    tbody.innerHTML = '';
+    partsRecords.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.dataset.id = r.id;
+      if (partsEditingId === r.id) {
+        tr.className = 'editing-row';
+        const cid = `editParts_${r.id}`;
+        tr.innerHTML = `
+          <td colspan="6" style="padding:8px;">
+            <div class="row form-group">
+              <div style="flex:1.4;"><label>店名</label><input type="text" id="editShop_${r.id}" value="${escapeHtml(r.shop)}"></div>
+              <div style="flex:1;"><label>日付</label><input type="date" id="editDate_${r.id}" value="${r.date}"></div>
+            </div>
+            <div class="form-group"><label>電話番号</label><input type="tel" id="editTel_${r.id}" value="${escapeHtml(r.tel||'')}"></div>
+            <div id="${cid}"></div>
+            <button type="button" class="btn-add-item" onclick="addItemBlock('${cid}', false)">＋ 部材追加</button>
+          </td>
+          <td style="text-align:center;">
+            <button type="button" class="btn-ok" onclick="savePartsEdit(${r.id})">OK</button>
+            <button type="button" class="btn-cancel" onclick="partsEditingId=null;renderParts();">キャンセル</button>
+          </td>`;
+        tbody.appendChild(tr);
+        r.items.forEach(it => addItemBlock(cid, false, it));
+        return;
+      }
+      if (r.done) tr.className = 'done';
+      const telHtml = r.tel ? `<br><span class="sub-info">${escapeHtml(r.tel)}</span>` : '';
+      tr.innerHTML = `
+        <td class="drag-handle">☰</td>
+        <td style="text-align:center;"><input type="checkbox" ${r.done?'checked':''} onchange="togglePartsDone(${r.id})"></td>
+        <td style="white-space:nowrap;">${r.date}</td>
+        <td><strong>${escapeHtml(r.shop)}</strong>${telHtml}</td>
+        <td>${r.items.map(i=>`<div class="item-line">${escapeHtml(i.partName)} × <strong>${i.count}</strong></div>`).join('')}</td>
+        <td>${r.items.map(i=>`<div class="item-line">${escapeHtml(i.maker||'--')}</div>`).join('')}</td>
+        <td style="text-align:center; white-space:nowrap;">
+          <button type="button" class="icon-action" title="編集" onclick="partsEditingId=${r.id};renderParts();">✎</button>
+          <button type="button" class="icon-action delete" title="削除" onclick="deletePartsRecord(${r.id})">×</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function exportPartsCSV() {
+    if (partsRecords.length === 0) return alert('データがありません');
+    let csv = '\uFEFF伝票付替,日付,店名,電話番号,部材名,個数,メーカー\n';
+    partsRecords.forEach(r => {
+      const st = r.done ? '済' : '未';
+      r.items.forEach(i => csv += `${st},${r.date},"${r.shop}","${r.tel||''}","${i.partName}",${i.count},"${i.maker||'--'}"\n`);
+    });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    a.download = `部材交換リスト_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+  }
+
+  function migrateMemoLabels() {
+    let changed = false;
+    const legacyMap = { cyan:['cyan'], yellow:['yellow'], pink:['pink'], purple:['purple'], green:[] };
+    memoRecords = memoRecords.map(r => {
+      if (Array.isArray(r.labels)) return r;
+      const labels = legacyMap.hasOwnProperty(r.color) ? legacyMap[r.color] : [];
+      changed = true;
+      const next = { ...r, labels };
+      delete next.color;
+      return next;
+    });
+    if (changed) localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
+  }
+
+  function memoLabelsOf(record) {
+    if (Array.isArray(record.labels)) return record.labels.slice(0,2);
+    return record.color && record.color !== 'green' ? [record.color] : [];
+  }
+
+  function labelName(id) { return memoLabelNames[id] || DEFAULT_LABEL_NAMES[id] || id; }
+  function labelColor(id) { return MEMO_COLORS.find(c => c.id === id) || UNCLASSIFIED; }
+
+  function renderNewMemoColorPicker() {
+    const box = document.getElementById('memoColorPicker');
+    if (!box) return;
+    const graySelected = selectedNewMemoColors.length === 0;
+    const choices = `<button type="button" class="label-choice ${graySelected?'selected':''}" onclick="selectNewMemoColor('gray')"><span class="dot" style="color:${UNCLASSIFIED.hex}">●</span><span>(未分類)</span></button>` +
+      MEMO_COLORS.map(c => `<button type="button" class="label-choice ${selectedNewMemoColors.includes(c.id)?'selected':''}" onclick="selectNewMemoColor('${c.id}')"><span class="dot" style="color:${c.hex}">●</span><span>(${escapeHtml(labelName(c.id))})</span></button>`).join('');
+    box.innerHTML = `<div class="label-picker">${choices}</div>`;
+  }
+
+  function selectNewMemoColor(cid) {
+    if (cid === 'gray') selectedNewMemoColors = [];
+    else if (selectedNewMemoColors.includes(cid)) selectedNewMemoColors = selectedNewMemoColors.filter(x => x !== cid);
+    else if (selectedNewMemoColors.length < 2) selectedNewMemoColors.push(cid);
+    else return;
+    renderNewMemoColorPicker();
+  }
+
+  function resetMemoForm() {
+    document.getElementById('memoDate').value = new Date().toISOString().slice(0, 10);
+    selectedNewMemoColors = [];
+    renderNewMemoColorPicker();
+    document.getElementById('memoText').value = '';
+  }
+
+  function cancelMemoInput() {
+    resetMemoForm();
+    closeInputPanel('memo');
+  }
+
+  function addMemoRecord() {
+    const date = document.getElementById('memoDate').value;
+    const text = document.getElementById('memoText').value.trim();
+    if (!date || !text) return alert('日付とテキストを入力してください');
+    memoRecords.unshift({ id: Date.now(), done: false, date, labels: selectedNewMemoColors.slice(0,2), text });
+    localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
+    localStorage.setItem(INTRO_SEEN_KEY, '1');
+    resetMemoForm();
+    closeInputPanel('memo');
+    renderMemos();
+  }
+
+  function openMemoLabelSettings() {
+    closeHamburgerMenu();
+    const fields = document.getElementById('memoLabelSettingsFields');
+    fields.innerHTML = MEMO_COLORS.map(c => `<div class="row"><label>${c.id==='cyan'?'水色':c.id==='yellow'?'黄色':c.id==='pink'?'ピンク':'紫'}</label><input type="text" id="labelName_${c.id}" maxlength="20" value="${escapeHtml(labelName(c.id))}"></div>`).join('');
+    document.getElementById('memoLabelSettingsModal').style.display = 'flex';
+  }
+
+  function closeMemoLabelSettings() {
+    document.getElementById('memoLabelSettingsModal').style.display = 'none';
+  }
+
+  function saveMemoLabelSettings() {
+    MEMO_COLORS.forEach(c => {
+      const value = document.getElementById(`labelName_${c.id}`).value.trim();
+      memoLabelNames[c.id] = value || DEFAULT_LABEL_NAMES[c.id];
+    });
+    localStorage.setItem(LABEL_NAMES_KEY, JSON.stringify(memoLabelNames));
+    renderNewMemoColorPicker();
+    renderMemoFilterOptions();
+    closeMemoLabelSettings();
+  }
+
+  function toggleMemoDateSort() {
+    memoSortOrder = (memoSortOrder === 'desc') ? 'asc' : (memoSortOrder === 'asc' ? 'manual' : 'desc');
+    updateMemoSortBtnLabel();
+    renderMemos();
+  }
+
+  function updateMemoSortBtnLabel() {
+    const btn = document.getElementById('memoDateSortBtn');
+    if (memoSortOrder === 'desc') btn.textContent = '日付 ▼';
+    else if (memoSortOrder === 'asc') btn.textContent = '日付 ▲';
+    else btn.textContent = '日付 ⇅';
+  }
+
+  function changeMemoColorFilter(val) {
+    memoFilterColor = val;
+    // 絞り込み変更は、選択状態と選択モードを必ず解除する。
+    selectionMode = false;
+    selectedMemoIds.clear();
+    updateSelectionToggle();
+    updateBulkActionButtons();
+    renderMemoFilterOptions();
+    updateHamburgerFilterIndicator();
+    closeHamburgerMenu();
+    renderMemos();
+  }
+
+  function toggleMemoDone(id) {
+    const t = memoRecords.find(r => r.id === id);
+    if (t) { t.done = !t.done; localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords)); renderMemos(); }
+  }
+
+  function handleMemoAction(sel, id) {
+    const act = sel.value; sel.value = '';
+    if (act === 'edit') { memoEditingId = id; renderMemos(); }
+    if (act === 'delete') deleteMemoRecord(id);
+  }
+
+  function deleteMemoRecord(id) {
+    const confirmed = confirm('このメモを削除しますか？');
+    openKebabId = null;
+    if (confirmed) {
+      memoRecords = memoRecords.filter(r => r.id !== id);
+      selectedMemoIds.delete(id);
+      if (memoEditingId === id) memoEditingId = null;
+      localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
+      updateBulkActionButtons();
+    }
+    renderMemos();
+  }
+
+  function saveMemoEdit(id) {
+    const date = document.getElementById(`editMemoDate_${id}`).value;
+    const labels = [...document.querySelectorAll(`#editMemoLabels_${id} input:checked`)].map(el => el.value).filter(v => v !== 'gray').slice(0,2);
+    const text = document.getElementById(`editMemoText_${id}`).value.trim();
+    if (!text) return deleteMemoRecord(id);
+    if (!date) return alert('日付を入力してください');
+    const idx = memoRecords.findIndex(r => r.id === id);
+    if (idx !== -1) {
+      const updated = { ...memoRecords[idx], date, labels, text };
+      delete updated.color;
+      memoRecords.splice(idx, 1);
+      memoRecords.unshift(updated);
+    }
+    memoEditingId = null;
+    localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
+    renderMemos();
+  }
+
+  function handleMemoCardClick(event, id) {
+    if (!selectionMode) return;
+    if (event.target.closest('button, input, select, textarea, .memo-drag-handle')) {
+      // 選択モード中はカード全体を選択面にする。ハンドル部分も選択として扱う。
+      if (event.target.closest('.memo-drag-handle')) toggleMemoSelection(id);
+      return;
+    }
+    toggleMemoSelection(id);
+  }
+
+  function toggleMemoSelection(id) {
+    if (selectedMemoIds.has(id)) selectedMemoIds.delete(id);
+    else selectedMemoIds.add(id);
+    updateBulkActionButtons();
+    renderMemos();
+  }
+
+  function toggleMemoKebab(event, id) {
+    event.stopPropagation();
+    openKebabId = openKebabId === id ? null : id;
+    renderMemos();
+  }
+
+  function closeMemoKebabs() {
+    const hadOpen = document.querySelector('.memo-kebab-menu.open');
+    if (openKebabId !== null || hadOpen) {
+      openKebabId = null;
+      if (currentMode === 'memo') renderMemos();
+    }
+  }
+
+  function memoKebabAction(action, id) {
+    openKebabId = null;
+    if (action === 'edit') { memoEditingId = id; renderMemos(); return; }
+    if (action === 'top' || action === 'bottom') {
+      moveMemoIds([id], action);
+      return;
+    }
+    if (action === 'delete') deleteMemoRecord(id);
+  }
+
+  function moveMemoIds(ids, direction) {
+    if (!ids.length) return;
+    memoSortOrder = 'manual';
+    updateMemoSortBtnLabel();
+    const movingSet = new Set(ids);
+    const moving = memoRecords.filter(r => movingSet.has(r.id));
+    memoRecords = memoRecords.filter(r => !movingSet.has(r.id));
+    if (direction === 'top') memoRecords.unshift(...moving);
+    else memoRecords.push(...moving);
+    localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
+    renderMemos();
+  }
+
+  function bulkMoveMemos(direction) {
+    if (!selectedMemoIds.size) return;
+    const ids = memoRecords.filter(r => selectedMemoIds.has(r.id)).map(r => r.id);
+    moveMemoIds(ids, direction);
+    clearSelectionMode();
+    closeHamburgerMenu();
+  }
+
+  function bulkDeleteMemos() {
+    if (!selectedMemoIds.size) return;
+    const count = selectedMemoIds.size;
+    if (!confirm(`選択した${count}件のメモを削除しますか？`)) return;
+    memoRecords = memoRecords.filter(r => !selectedMemoIds.has(r.id));
+    localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
+    clearSelectionMode();
+    closeHamburgerMenu();
+    renderMemos();
+  }
+
+  function renderMemos() {
+    const box = document.getElementById('memoListBody');
+    box.innerHTML = '';
+
+    if (memoRecords.length === 0 && localStorage.getItem(INTRO_SEEN_KEY) !== '1') {
+      const hint = document.createElement('div');
+      hint.className = 'memo-first-use-hint';
+      hint.textContent = 'アプリタイトルをタップすると、入力フォームが開きます';
+      box.appendChild(hint);
+    }
+
+    let list = [...memoRecords];
+    if (memoFilterColor === 'gray') list = list.filter(r => memoLabelsOf(r).length === 0);
+    else if (memoFilterColor !== 'all') list = list.filter(r => memoLabelsOf(r).includes(memoFilterColor));
+    if (memoSortOrder === 'desc') list.sort((a, b) => b.date.localeCompare(a.date));
+    else if (memoSortOrder === 'asc') list.sort((a, b) => a.date.localeCompare(b.date));
+
+    list.forEach(r => {
+      const labels = memoLabelsOf(r);
+      const dots = labels.length ? labels.map(id => `<span class="memo-color-dot" style="color:${labelColor(id).hex}" title="${escapeHtml(labelName(id))}">●</span>`).join('') : `<span class="memo-color-dot" style="color:${UNCLASSIFIED.hex}" title="未分類">●</span>`;
+      if (memoEditingId === r.id) {
+        const edit = document.createElement('div');
+        edit.className = 'memo-edit-panel';
+        const labelChoices = `<label class="label-choice"><input type="checkbox" value="gray" ${labels.length===0?'checked':''} onchange="editMemoLabelChanged(${r.id}, this)"><span class="dot" style="color:${UNCLASSIFIED.hex}">●</span><span>(未分類)</span></label>` +
+          MEMO_COLORS.map(c => `<label class="label-choice"><input type="checkbox" value="${c.id}" ${labels.includes(c.id)?'checked':''} onchange="editMemoLabelChanged(${r.id}, this)"><span class="dot" style="color:${c.hex}">●</span><span>(${escapeHtml(labelName(c.id))})</span></label>`).join('');
+        edit.innerHTML = `
+          <div class="row form-group">
+            <div><label>日付</label><input type="date" id="editMemoDate_${r.id}" value="${r.date}"></div>
+          </div>
+          <div class="form-group"><label>ラベル（2つまで）</label><div class="label-picker" id="editMemoLabels_${r.id}">${labelChoices}</div></div>
+          <div><label>テキスト</label><textarea id="editMemoText_${r.id}">${escapeHtml(r.text)}</textarea></div>
+          <div class="memo-edit-actions"><button type="button" class="btn-ok" onclick="saveMemoEdit(${r.id})">保存</button><button type="button" class="btn-cancel" onclick="memoEditingId=null;renderMemos();">キャンセル</button></div>`;
+        box.appendChild(edit);
+        return;
+      }
+
+      const card = document.createElement('div');
+      card.className = 'memo-card' + (r.done ? ' done' : '') + (selectionMode ? ' selection-mode' : '') + (selectedMemoIds.has(r.id) ? ' selected' : '');
+      card.dataset.id = r.id;
+      card.onclick = event => handleMemoCardClick(event, r.id);
+      const kebab = selectionMode ? '' : `
+        <div class="memo-kebab-wrap">
+          <button type="button" class="memo-kebab" aria-label="メモ操作" onclick="toggleMemoKebab(event, ${r.id})">⋮</button>
+          <div class="memo-kebab-menu ${openKebabId===r.id?'open':''}" onclick="event.stopPropagation()">
+            <button type="button" onclick="memoKebabAction('edit', ${r.id})">編集</button>
+            <button type="button" onclick="memoKebabAction('top', ${r.id})">一番上に移動</button>
+            <button type="button" onclick="memoKebabAction('bottom', ${r.id})">一番下に移動</button>
+            <button type="button" onclick="memoKebabAction('delete', ${r.id})">削除</button>
+          </div>
+        </div>`;
+      card.innerHTML = `
+        <div class="memo-drag-handle" title="ドラッグして並べ替え">☰</div>
+        <div class="memo-meta">
+          <div class="memo-meta-top"><input type="checkbox" ${r.done?'checked':''} onchange="toggleMemoDone(${r.id})" onclick="event.stopPropagation()"><span>（済）</span></div>
+          <div class="memo-meta-colors">${dots}</div>
+          <div class="memo-date">${escapeHtml(r.date)}</div>
+        </div>
+        <div class="memo-text" onclick="if(!selectionMode){event.stopPropagation();openMemoModal(${r.id});}">${escapeHtml(r.text)}</div>
+        ${kebab}`;
+      box.appendChild(card);
+    });
+    updateBulkActionButtons();
+    updateSelectionToggle();
+  }
+
+  function editMemoLabelChanged(id, changed) {
+    const wrap = document.getElementById(`editMemoLabels_${id}`);
+    const gray = wrap.querySelector('input[value="gray"]');
+    const categoryChecks = [...wrap.querySelectorAll('input:not([value="gray"])')];
+    if (changed.value === 'gray' && changed.checked) {
+      categoryChecks.forEach(el => el.checked = false);
+    } else if (changed.value !== 'gray' && changed.checked) {
+      gray.checked = false;
+      const selected = categoryChecks.filter(el => el.checked);
+      if (selected.length > 2) changed.checked = false;
+    }
+    if (!categoryChecks.some(el => el.checked)) gray.checked = true;
+  }
+
+  function openMemoModal(id) {
+    const r = memoRecords.find(x => x.id === id);
+    if (!r) return;
+    const labels = memoLabelsOf(r);
+    const dots = labels.length ? labels.map(id => `<span style="color:${labelColor(id).hex};">●</span>`).join(' ') : `<span style="color:${UNCLASSIFIED.hex};">●</span>`;
+    document.getElementById('modalTitle').innerHTML = `${dots} ${r.date}`;
+    document.getElementById('modalBodyText').textContent = r.text;
+    document.getElementById('memoModal').style.display = 'flex';
+  }
+
+  function closeMemoModal() {
+    document.getElementById('memoModal').style.display = 'none';
+  }
+
+  function setupDragAndDrop(containerId, isEditingFn, onReordered) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    let dragItem = null;
+    let startY = 0;
+    let moved = false;
+
+    container.addEventListener('pointerdown', e => {
+      const handle = e.target.closest('.drag-handle, .memo-drag-handle');
+      if (!handle || isEditingFn() || (containerId === 'memoListBody' && selectionMode)) return;
+      const item = handle.closest(containerId === 'memoListBody' ? '.memo-card' : 'tr');
+      if (!item) return;
+      e.preventDefault();
+      dragItem = item;
+      startY = e.clientY;
+      moved = false;
+      document.body.classList.add('drag-in-progress');
+      dragItem.classList.add('dragging-active');
+      document.addEventListener('pointermove', onPointerMove, { passive: false });
+      document.addEventListener('pointerup', onPointerUp, { once: true });
+      document.addEventListener('pointercancel', onPointerUp, { once: true });
+    });
+
+    function onPointerMove(ev) {
+      if (!dragItem) return;
+      ev.preventDefault();
+      if (Math.abs(ev.clientY - startY) > 4) moved = true;
+      const candidates = [...container.children].filter(el => el !== dragItem);
+      if (!candidates.length) return;
+      const firstRect = candidates[0].getBoundingClientRect();
+      const lastRect = candidates[candidates.length - 1].getBoundingClientRect();
+      if (ev.clientY < firstRect.top) {
+        container.insertBefore(dragItem, candidates[0]);
+        return;
+      }
+      if (ev.clientY > lastRect.bottom) {
+        container.appendChild(dragItem);
+        return;
+      }
+      for (const item of candidates) {
+        const rect = item.getBoundingClientRect();
+        if (ev.clientY >= rect.top && ev.clientY <= rect.bottom) {
+          const before = ev.clientY < rect.top + rect.height / 2;
+          container.insertBefore(dragItem, before ? item : item.nextSibling);
+          break;
+        }
+      }
+    }
+
+    function onPointerUp() {
+      if (!dragItem) return;
+      dragItem.classList.remove('dragging-active');
+      document.body.classList.remove('drag-in-progress');
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointercancel', onPointerUp);
+      if (moved) {
+        const ids = [...container.children].map(el => Number(el.dataset.id)).filter(Number.isFinite);
+        onReordered(ids);
+      } else if (containerId === 'memoListBody') {
+        // ほぼタップだった場合は、本文表示など通常のカード操作に任せる。
+      }
+      dragItem = null;
+    }
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+  }
+</script>
+</body>
+</html>
