@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>メモ v1.3</title>
-<!-- Version: v1.3 -->
+<title>メモ v1.4</title>
+<!-- Version: v1.4 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -266,6 +266,11 @@
   .memo-settings-fields { display:flex; flex-direction:column; gap:9px; margin:14px 0; }
   .memo-settings-fields .row { align-items:center; }
   .memo-settings-fields label { width:78px; flex:0 0 78px; margin:0; }
+  .memo-settings-fields .memo-setting-label {
+    width:108px; flex:0 0 108px; display:flex; align-items:center; gap:4px;
+    margin:0; font-size:.62rem; white-space:nowrap;
+  }
+  .memo-settings-fields .memo-setting-label .dot { font-size:1rem; line-height:1; }
   .modal-actions { display:flex; gap:8px; }
   .modal-actions button { flex:1; }
   .hidden { display: none !important; }
@@ -274,7 +279,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.3</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.4</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -613,6 +618,9 @@
     const opening = panel.classList.contains('hidden');
     panel.classList.toggle('hidden', !opening);
     document.getElementById('appTitleButton').setAttribute('aria-expanded', String(opening));
+    if (opening) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   function closeInputPanel(mode = 'memo') {
@@ -820,7 +828,7 @@
   function openMemoLabelSettings() {
     closeHamburgerMenu();
     const fields = document.getElementById('memoLabelSettingsFields');
-    fields.innerHTML = MEMO_COLORS.map(c => `<div class="row"><label>${c.colorName}</label><input type="text" id="labelName_${c.id}" maxlength="20" value="${escapeHtml(labelName(c.id))}"></div>`).join('');
+    fields.innerHTML = MEMO_COLORS.map(c => `<div class="row"><label class="memo-setting-label"><span class="dot" style="color:${c.hex}">●</span><span>${c.colorName}</span></label><input type="text" id="labelName_${c.id}" maxlength="20" value="${escapeHtml(labelName(c.id))}"></div>`).join('');
     document.getElementById('memoLabelSettingsModal').style.display = 'flex';
   }
 
