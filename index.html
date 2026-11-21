@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>メモ v1.1</title>
-<!-- Version: v1.1 -->
+<title>メモ v1.2</title>
+<!-- Version: v1.2 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -274,7 +274,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.1</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.2</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -358,15 +358,25 @@
   const KNOWN_MAKERS = ['--', 'ホシザキ', 'ニットク', 'ボクソン'];
 
   const MEMO_COLORS = [
-    { id: 'cyan',   hex: '#00bcd4' },
-    { id: 'yellow', hex: '#eab308' },
-    { id: 'pink',   hex: '#ec4899' },
-    { id: 'purple', hex: '#a855f7' }
+    { id: 'coffee',   hex: '#af927a', colorName: 'カフェオレブラウン' },
+    { id: 'smoky',    hex: '#7d94c0', colorName: 'スモーキーブルー' },
+    { id: 'rose',     hex: '#d19395', colorName: 'オールドローズ' },
+    { id: 'sage',     hex: '#a2b991', colorName: 'セージグリーン' },
+    { id: 'mustard',  hex: '#e0be77', colorName: 'マスタードクリーム' },
+    { id: 'lavender', hex: '#ad9ebe', colorName: 'ダスティラベンダー' }
   ];
-  const UNCLASSIFIED = { id: 'gray', name: '未分類', hex: '#9ca3af' };
+  const UNCLASSIFIED = { id: 'gray', name: '未分類', hex: '#dfd2c2' };
   const LABEL_NAMES_KEY = 'memo_label_names_v1';
-  const INTRO_SEEN_KEY = 'memo_v1_intro_seen';
-  const DEFAULT_LABEL_NAMES = { cyan:'分類1', yellow:'分類2', pink:'分類3', purple:'分類4' };
+  const DEFAULT_LABEL_NAMES = {
+    coffee:'分類1', smoky:'分類2', rose:'分類3',
+    sage:'分類4', mustard:'分類5', lavender:'分類6'
+  };
+  const OLD_COLOR_TO_NEW = {
+    cyan:'smoky', yellow:'mustard', pink:'rose', purple:'lavender'
+  };
+  const OLD_DEFAULT_LABEL_NAMES = {
+    cyan:'分類1', yellow:'分類2', pink:'分類3', purple:'分類4'
+  };
   let memoLabelNames = { ...DEFAULT_LABEL_NAMES };
 
 
@@ -394,7 +404,21 @@
 
     const savedNames = localStorage.getItem(LABEL_NAMES_KEY);
     if (savedNames) {
-      try { memoLabelNames = { ...DEFAULT_LABEL_NAMES, ...JSON.parse(savedNames) }; } catch (_) {}
+      try {
+        const parsedNames = JSON.parse(savedNames);
+        const migratedNames = { ...DEFAULT_LABEL_NAMES };
+        Object.entries(OLD_COLOR_TO_NEW).forEach(([oldId, newId]) => {
+          if (Object.prototype.hasOwnProperty.call(parsedNames, oldId) &&
+              parsedNames[oldId] !== OLD_DEFAULT_LABEL_NAMES[oldId]) {
+            migratedNames[newId] = parsedNames[oldId];
+          }
+        });
+        Object.keys(DEFAULT_LABEL_NAMES).forEach(id => {
+          if (Object.prototype.hasOwnProperty.call(parsedNames, id)) migratedNames[id] = parsedNames[id];
+        });
+        memoLabelNames = migratedNames;
+        localStorage.setItem(LABEL_NAMES_KEY, JSON.stringify(memoLabelNames));
+      } catch (_) {}
     }
     const savedMemos = localStorage.getItem(MEMO_KEY);
     if (savedMemos) {
@@ -718,21 +742,34 @@
 
   function migrateMemoLabels() {
     let changed = false;
-    const legacyMap = { cyan:['cyan'], yellow:['yellow'], pink:['pink'], purple:['purple'], green:[] };
     memoRecords = memoRecords.map(r => {
-      if (Array.isArray(r.labels)) return r;
-      const labels = legacyMap.hasOwnProperty(r.color) ? legacyMap[r.color] : [];
-      changed = true;
+      let labels;
+      if (Array.isArray(r.labels)) {
+        labels = r.labels
+          .map(id => OLD_COLOR_TO_NEW[id] || id)
+          .filter(id => Object.prototype.hasOwnProperty.call(DEFAULT_LABEL_NAMES, id))
+          .slice(0, 2);
+        if (JSON.stringify(labels) !== JSON.stringify(r.labels)) changed = true;
+      } else {
+        const oldId = r.color;
+        labels = OLD_COLOR_TO_NEW[oldId] ? [OLD_COLOR_TO_NEW[oldId]] : [];
+        changed = true;
+      }
       const next = { ...r, labels };
-      delete next.color;
+      if (Object.prototype.hasOwnProperty.call(next, 'color')) delete next.color;
       return next;
     });
     if (changed) localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
   }
 
   function memoLabelsOf(record) {
-    if (Array.isArray(record.labels)) return record.labels.slice(0,2);
-    return record.color && record.color !== 'green' ? [record.color] : [];
+    if (Array.isArray(record.labels)) {
+      return record.labels.map(id => OLD_COLOR_TO_NEW[id] || id)
+        .filter(id => Object.prototype.hasOwnProperty.call(DEFAULT_LABEL_NAMES, id))
+        .slice(0, 2);
+    }
+    const oldId = record.color;
+    return OLD_COLOR_TO_NEW[oldId] ? [OLD_COLOR_TO_NEW[oldId]] : [];
   }
 
   function labelName(id) { return memoLabelNames[id] || DEFAULT_LABEL_NAMES[id] || id; }
@@ -782,7 +819,7 @@
   function openMemoLabelSettings() {
     closeHamburgerMenu();
     const fields = document.getElementById('memoLabelSettingsFields');
-    fields.innerHTML = MEMO_COLORS.map(c => `<div class="row"><label>${c.id==='cyan'?'水色':c.id==='yellow'?'黄色':c.id==='pink'?'ピンク':'紫'}</label><input type="text" id="labelName_${c.id}" maxlength="20" value="${escapeHtml(labelName(c.id))}"></div>`).join('');
+    fields.innerHTML = MEMO_COLORS.map(c => `<div class="row"><label>${c.colorName}</label><input type="text" id="labelName_${c.id}" maxlength="20" value="${escapeHtml(labelName(c.id))}"></div>`).join('');
     document.getElementById('memoLabelSettingsModal').style.display = 'flex';
   }
 
