@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>メモ v1.4</title>
-<!-- Version: v1.4 -->
+<title>MEMO-Q_v2.0</title>
+<!-- Version: v2.0 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -256,6 +256,16 @@
     white-space: pre-wrap; word-break: break-all; max-height: 60vh;
     overflow-y: auto; margin: 12px 0; line-height: 1.5; font-size: 0.95rem;
   }
+  .qr-modal-box {
+    background: #fff; color: #222; padding: 16px; border-radius: 10px;
+    width: min(420px, 100%); box-sizing: border-box; text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .qr-modal-box h3 { margin: 0 0 10px; font-size: 1rem; }
+  #memoQrCode { width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+  #memoQrCode svg { display: block; width: min(78vw, 340px); height: auto; max-width: 100%; }
+  .qr-help { margin: 10px 0 12px; color: #555; font-size: .82rem; line-height: 1.5; }
+  .qr-close-btn { width: 100%; padding: 10px; border: 0; border-radius: 7px; background: #e8edf0; color: #222; font-size: .9rem; }
   .input-panel { margin-bottom:14px; }
   .label-picker { display:flex; flex-wrap:wrap; gap:5px 9px; align-items:center; }
   .label-choice { display:inline-flex; align-items:center; gap:4px; border:1px solid transparent; border-radius:6px; padding:4px 5px; background:transparent; color:var(--text-color); font-size:.78rem; cursor:pointer; white-space:nowrap; }
@@ -279,7 +289,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO_v1.4</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.0</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -343,6 +353,15 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="memoQrModal" onclick="closeMemoQrModal()">
+    <div class="qr-modal-box" onclick="event.stopPropagation()">
+      <h3>メモをQRコードで渡す</h3>
+      <div id="memoQrCode" aria-label="メモ本文のQRコード"></div>
+      <div class="qr-help">相手のスマートフォンで読み取ってください。<br>QRコードにはメモ本文がそのまま入っています。</div>
+      <button type="button" class="qr-close-btn" onclick="closeMemoQrModal()">閉じる</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="memoLabelSettingsModal" onclick="closeMemoLabelSettings()">
     <div class="modal-box" onclick="event.stopPropagation()">
       <strong>ラベル設定</strong>
@@ -354,6 +373,9 @@
     </div>
   </div>
 
+<!-- QRコード生成ライブラリ（MIT License / Kazuhiko Arase）。UTF-8対応を含む -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode_UTF8.js"></script>
 <script>
   const PARTS_KEY = 'parts_replacement_memo_v2';
   const MEMO_KEY = 'general_memo_v1';
@@ -948,6 +970,7 @@
 
   function memoKebabAction(action, id) {
     openKebabId = null;
+    if (action === 'qr') { openMemoQr(id); return; }
     if (action === 'edit') { memoEditingId = id; renderMemos(); return; }
     if (action === 'top' || action === 'bottom') {
       moveMemoIds([id], action);
@@ -1032,6 +1055,7 @@
         <div class="memo-kebab-wrap">
           <button type="button" class="memo-kebab" aria-label="メモ操作" onclick="toggleMemoKebab(event, ${r.id})">⋮</button>
           <div class="memo-kebab-menu ${openKebabId===r.id?'open':''}" onclick="event.stopPropagation()">
+            <button type="button" onclick="memoKebabAction('qr', ${r.id})">このメモのQRコードを生成</button>
             <button type="button" onclick="memoKebabAction('edit', ${r.id})">編集</button>
             <button type="button" onclick="memoKebabAction('top', ${r.id})">一番上に移動</button>
             <button type="button" onclick="memoKebabAction('bottom', ${r.id})">一番下に移動</button>
@@ -1065,6 +1089,33 @@
       if (selected.length > 2) changed.checked = false;
     }
     if (!categoryChecks.some(el => el.checked)) gray.checked = true;
+  }
+
+  function openMemoQr(id) {
+    const r = memoRecords.find(x => x.id === id);
+    if (!r) return;
+    const target = document.getElementById('memoQrCode');
+    target.innerHTML = '';
+    if (typeof qrcode !== 'function' || !qrcode.stringToBytesFuncs || !qrcode.stringToBytesFuncs['UTF-8']) {
+      alert('QRコード生成機能を読み込めませんでした。インターネット接続を確認してください。');
+      return;
+    }
+    try {
+      qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+      const qr = qrcode(0, 'L');
+      qr.addData(r.text, 'Byte');
+      qr.make();
+      target.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
+      document.getElementById('memoQrModal').style.display = 'flex';
+    } catch (error) {
+      console.error(error);
+      alert('このメモはQRコードに収まらないか、生成に失敗しました。');
+    }
+  }
+
+  function closeMemoQrModal() {
+    document.getElementById('memoQrModal').style.display = 'none';
+    document.getElementById('memoQrCode').innerHTML = '';
   }
 
   function openMemoModal(id) {
