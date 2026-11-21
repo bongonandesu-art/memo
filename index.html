@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEMO-Q_v2.1</title>
-<!-- Version: v2.1 -->
+<title>MEMO-Q_v2.1.1</title>
+<!-- Version: v2.1.1 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -311,7 +311,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.1</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.1.1</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -417,8 +417,7 @@
 <!-- QRコード生成ライブラリ（MIT License / Kazuhiko Arase）。UTF-8対応を含む -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode_UTF8.js"></script>
-<!-- QRコード読み取りライブラリ jsQR（Apache-2.0 License / Cosmo Wolfe）v2.1 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<!-- QRコード読み取りライブラリ jsQR（Apache-2.0 License / Cosmo Wolfe）は、読み取りボタンを押したときに複数の配信元から順に読み込む -->
 <script>
   const PARTS_KEY = 'parts_replacement_memo_v2';
   const MEMO_KEY = 'general_memo_v1';
@@ -1178,9 +1177,37 @@
   let qrScanTimer = null;
   let qrScanActive = false;
 
+  const JSQR_SOURCES = [
+    'lib/jsQR.js',
+    'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js',
+    'https://unpkg.com/jsqr@1.4.0/dist/jsQR.js'
+  ];
+  let jsQrLoading = null;
+
+  function ensureJsQr() {
+    if (typeof jsQR === 'function') return Promise.resolve(true);
+    if (jsQrLoading) return jsQrLoading;
+    jsQrLoading = (async () => {
+      for (const src of JSQR_SOURCES) {
+        const ok = await new Promise(resolve => {
+          const el = document.createElement('script');
+          el.src = src;
+          el.onload = () => resolve(typeof jsQR === 'function');
+          el.onerror = () => { el.remove(); resolve(false); };
+          document.head.appendChild(el);
+        });
+        if (ok) return true;
+      }
+      return false;
+    })();
+    jsQrLoading.then(ok => { if (!ok) jsQrLoading = null; });
+    return jsQrLoading;
+  }
+
   async function openQrScanner() {
     if (qrScanActive) return;
-    if (typeof jsQR !== 'function') {
+    if (!(await ensureJsQr())) {
       alert('QRコード読み取り機能を読み込めませんでした。インターネット接続を確認してください。');
       return;
     }
