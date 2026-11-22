@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEMO-Q_v2.1.2</title>
-<!-- Version: v2.1.2 -->
+<title>MEMO-Q_v2.3.0</title>
+<!-- Version: v2.3.0 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -224,12 +224,15 @@
   .memo-card.selection-mode .memo-meta input[type="checkbox"] { pointer-events: none; }
   .memo-color-dot { font-size: 1rem; line-height: 1; }
   .memo-date { color: var(--sub-text); font-size: .68rem; line-height: 1; white-space: nowrap; }
-  .memo-text { align-self: center; min-width: 0; font-size: .9rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; cursor: pointer; }
+  .memo-main { align-self: center; min-width: 0; }
+  .memo-count { margin-top: 3px; color: var(--sub-text); font-size: calc(.68rem - 1px); line-height: 1.2; white-space: nowrap; }
+  .memo-text { min-width: 0; font-size: .9rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; cursor: pointer; }
   .memo-card.done .memo-text { text-decoration: line-through; }
   .memo-kebab-wrap { display: flex; align-items: center; justify-content: center; position: relative; }
   .memo-kebab { border: 0; background: transparent; color: var(--sub-text); font-size: 1.45rem; line-height: 1; width: 30px; height: 40px; padding: 0; cursor: pointer; }
-  .memo-kebab-menu { display: none; position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 30; min-width: 150px; padding: 5px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--card-bg); box-shadow: 0 4px 14px rgba(0,0,0,.22); }
+  .memo-kebab-menu { display: none; position: absolute; right: 0; top: 0; z-index: 30; min-width: 150px; padding: 5px; border: 1px solid var(--input-border); border-radius: 8px; background: var(--card-bg); box-shadow: 0 4px 14px rgba(0,0,0,.22); }
   .memo-kebab-menu.open { display: block; }
+  .memo-kebab-menu.up { top: auto; bottom: 0; }
   .memo-kebab-menu button { display: block; width: 100%; padding: 9px 8px; border: 0; border-radius: 5px; text-align: left; color: var(--text-color); background: transparent; font-size: .85rem; }
   .memo-card.selection-mode { background: var(--item-box-bg); border: 2px dashed var(--primary-color); padding: 8px 6px; }
   .memo-card.selected { border: 2px solid #3b82f6; background: rgba(59,130,246,.09); padding: 8px 6px; }
@@ -262,8 +265,26 @@
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
   .qr-modal-box h3 { margin: 0 0 10px; font-size: 1rem; }
-  #memoQrCode { width: 100%; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-  #memoQrCode svg { display: block; width: min(78vw, 340px); height: auto; max-width: 100%; }
+  .qr-gen-box { max-height: calc(100vh - 32px); display: flex; flex-direction: column; overflow: hidden; }
+  #memoQrCode { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 0; flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .qr-part { border: 3px solid transparent; border-radius: 10px; padding: 6px; box-sizing: border-box; }
+  #memoQrCode.multi .qr-part { border-color: #cfd8dc; border-style: dashed; cursor: pointer; }
+  #memoQrCode.multi .qr-part.selected { border-color: #1e88e5; border-style: solid; }
+  .qr-part-label { font-size: .78rem; color: #555; margin-bottom: 4px; }
+  .qr-part.selected .qr-part-label { color: #1565c0; font-weight: bold; }
+  .qr-part-body { position: relative; width: min(78vw, 340px); }
+  #memoQrCode.multi .qr-part-body { width: min(64vw, 270px); }
+  .qr-part-body > svg { display: block; width: 100%; height: auto; }
+  .qr-mask { position: absolute; inset: 0; display: none; }
+  .qr-part:not(.selected) .qr-mask { display: block; }
+  .qr-mask svg { display: block; width: 100%; height: 100%; }
+  .qr-error { padding: 22px 12px; font-size: .85rem; line-height: 1.6; color: #b71c1c; background: #fff3f3; border-radius: 8px; }
+  .qr-split-bar { margin-top: 10px; flex: 0 0 auto; }
+  .qr-split-info { font-size: .76rem; color: #555; margin-bottom: 6px; }
+  .qr-split-btns { display: flex; gap: 6px; }
+  .qr-split-btn { flex: 1; padding: 8px 4px; border: 1px solid #b8c4cc; border-radius: 7px; background: #fff; color: #222; font-size: .85rem; }
+  .qr-split-btn.active { background: #1e88e5; border-color: #1e88e5; color: #fff; }
+  .qr-split-btn:disabled { opacity: .4; }
   .qr-help { margin: 10px 0 12px; color: #555; font-size: .82rem; line-height: 1.5; }
   .qr-close-btn { width: 100%; padding: 10px; border: 0; border-radius: 7px; background: #e8edf0; color: #222; font-size: .9rem; }
   .input-panel { margin-bottom:14px; }
@@ -311,7 +332,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.1.2</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.3.0</button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -379,10 +400,11 @@
   </div>
 
   <div class="modal-overlay" id="memoQrModal" onclick="closeMemoQrModal()">
-    <div class="qr-modal-box" onclick="event.stopPropagation()">
+    <div class="qr-modal-box qr-gen-box" onclick="event.stopPropagation()">
       <h3>メモをQRコードで渡す</h3>
       <div id="memoQrCode" aria-label="メモ本文のQRコード"></div>
-      <div class="qr-help">相手のスマートフォンで読み取ってください。<br>QRコードにはメモ本文がそのまま入っています。</div>
+      <div class="qr-split-bar" id="memoQrSplitBar"></div>
+      <div class="qr-help" id="memoQrHelp"></div>
       <button type="button" class="qr-close-btn" onclick="closeMemoQrModal()">閉じる</button>
     </div>
   </div>
@@ -1113,12 +1135,29 @@
           <div class="memo-meta-colors">${dots}</div>
           <div class="memo-date">${escapeHtml(r.date)}</div>
         </div>
-        <div class="memo-text" onclick="if(!selectionMode){event.stopPropagation();openMemoModal(${r.id});}">${escapeHtml(r.text)}</div>
+        <div class="memo-main">
+          <div class="memo-text" onclick="if(!selectionMode){event.stopPropagation();openMemoModal(${r.id});}">${escapeHtml(r.text)}</div>
+          <div class="memo-count">${memoCountText(r.text)}</div>
+        </div>
         ${kebab}`;
       box.appendChild(card);
     });
     updateBulkActionButtons();
     updateSelectionToggle();
+    const openMenu = document.querySelector('.memo-kebab-menu.open');
+    if (openMenu) positionKebabMenu(openMenu);
+  }
+
+  // メモ操作メニューは、通常はカードの上端から下へ開く。画面の下に入りきらず、上に余裕があるときだけ上へ開く。
+  function positionKebabMenu(menu) {
+    menu.classList.remove('up');
+    const bar = document.getElementById('topBar');
+    const minTop = (bar ? bar.offsetHeight : 60) + 4;
+    const rect = menu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 8) {
+      menu.classList.add('up');
+      if (menu.getBoundingClientRect().top < minTop) menu.classList.remove('up');
+    }
   }
 
   function editMemoLabelChanged(id, changed) {
@@ -1256,7 +1295,7 @@
       closeQrScanner();
       let msg = 'カメラを起動できませんでした。（' + name + '）';
       if (name === 'NotAllowedError' || name === 'SecurityError') {
-        msg = 'カメラの使用が許可されていません。\nブラウザの設定でカメラを許可してください。';
+        msg = 'カメラの使用が許可されていません。\nブラウザの設定でカメラを許可してください。\n（画面に重なって浮かぶアプリがある場合は、閉じてからお試しください）';
       } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
         msg = 'カメラが見つかりませんでした。（' + name + '）';
       } else if (name === 'NotReadableError') {
@@ -1341,31 +1380,159 @@
     if (document.hidden && qrScanActive && qrScanStream) closeQrScanner();
   });
 
+  // ===== v2.3.0 文字数/行数 =====
+  function memoCountText(text) {
+    const chars = Array.from(text).length;
+    const lines = text.split(/\r\n|\r|\n/).length;
+    return `${chars}字/${lines}行`;
+  }
+
+  // ===== v2.3.0 QRコード生成（2〜3分割対応） =====
+  let qrGenText = '';
+  let qrGenSplit = 1;   // 1 = 分割なし
+  let qrGenSel = 0;     // 読み取り対象（分割時）
+
+  // 行単位で n 分割する。全文字数を n で割った位置に、いちばん近い行の末尾を切れ目にする。
+  function splitTextByLines(text, n) {
+    const lines = text.split('\n');
+    const L = lines.length;
+    if (n < 2 || L < n) return null;
+    const prefix = [];
+    let acc = 0;
+    for (let i = 0; i < L; i++) { acc += Array.from(lines[i]).length + 1; prefix.push(acc); }
+    const total = acc;
+    const cuts = [];
+    let prev = -1;
+    for (let k = 1; k < n; k++) {
+      const target = total * k / n;
+      const lo = prev + 1;
+      const hi = L - 1 - (n - k);
+      let cut = lo, bestD = Infinity;
+      for (let i = lo; i <= hi; i++) {
+        const d = Math.abs(prefix[i] - target);
+        if (d < bestD) { bestD = d; cut = i; }
+      }
+      // 切れ目が空行なら、空行は次のQRの先頭へ回す（読み取り時に末尾の空白が削られても内容が変わらないように）
+      while (cut > lo && lines[cut].trim() === '') cut--;
+      cuts.push(cut);
+      prev = cut;
+    }
+    const parts = [];
+    let start = 0;
+    cuts.forEach(c => { parts.push(lines.slice(start, c + 1).join('\n')); start = c + 1; });
+    parts.push(lines.slice(start).join('\n'));
+    return parts;
+  }
+
+  function makeQrSvg(text) {
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+    const qr = qrcode(0, 'L');
+    qr.addData(text, 'Byte');
+    qr.make();
+    return qr.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
+  }
+
+  const QR_MASK_SVG = '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><rect width="100" height="100" fill="rgba(255,255,255,.6)"/><line x1="0" y1="0" x2="100" y2="100" stroke="#d32f2f" stroke-width="24"/><line x1="100" y1="0" x2="0" y2="100" stroke="#d32f2f" stroke-width="24"/><polygon points="50,18 82,74 18,74" fill="#b71c1c" stroke="#fff" stroke-width="3"/></svg>';
+
   function openMemoQr(id) {
     const r = memoRecords.find(x => x.id === id);
     if (!r) return;
-    const target = document.getElementById('memoQrCode');
-    target.innerHTML = '';
     if (typeof qrcode !== 'function' || !qrcode.stringToBytesFuncs || !qrcode.stringToBytesFuncs['UTF-8']) {
       alert('QRコード生成機能を読み込めませんでした。インターネット接続を確認してください。');
       return;
     }
-    try {
-      qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
-      const qr = qrcode(0, 'L');
-      qr.addData(r.text, 'Byte');
-      qr.make();
-      target.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 16, scalable: true });
-      document.getElementById('memoQrModal').style.display = 'flex';
-    } catch (error) {
-      console.error(error);
-      alert('このメモはQRコードに収まらないか、生成に失敗しました。');
-    }
+    qrGenText = r.text;
+    qrGenSplit = 1;
+    qrGenSel = 0;
+    renderMemoQr();
+    document.getElementById('memoQrModal').style.display = 'flex';
+  }
+
+  function setQrSplit(n) {
+    qrGenSplit = n;
+    qrGenSel = 0;
+    renderMemoQr();
+  }
+
+  function selectQrPart(i) {
+    qrGenSel = i;
+    applyQrSelection();
+  }
+
+  function applyQrSelection() {
+    document.querySelectorAll('#memoQrCode .qr-part').forEach((el, i) => {
+      el.classList.toggle('selected', i === qrGenSel);
+      const st = el.querySelector('.qr-part-state');
+      if (st) st.textContent = i === qrGenSel ? '　✔ 読み取り対象' : '　タップで選択';
+    });
+  }
+
+  function renderMemoQr() {
+    const target = document.getElementById('memoQrCode');
+    const bar = document.getElementById('memoQrSplitBar');
+    const help = document.getElementById('memoQrHelp');
+    const text = qrGenText;
+    const totalLines = text.split('\n').length;
+    const totalChars = Array.from(text).length;
+
+    let parts = qrGenSplit > 1 ? splitTextByLines(text, qrGenSplit) : null;
+    if (!parts) { qrGenSplit = 1; parts = [text]; }
+    const multi = parts.length > 1;
+
+    target.innerHTML = '';
+    target.classList.toggle('multi', multi);
+    parts.forEach((p, i) => {
+      let svg = '';
+      try { svg = makeQrSvg(p); } catch (error) { console.error(error); svg = ''; }
+      const part = document.createElement('div');
+      part.className = 'qr-part';
+      if (multi) {
+        part.innerHTML = `<div class="qr-part-label">${i + 1}/${parts.length}（${memoCountText(p)}）<span class="qr-part-state"></span></div>`;
+      }
+      const body = document.createElement('div');
+      body.className = 'qr-part-body';
+      if (svg) {
+        body.innerHTML = svg;
+        if (multi) {
+          const mask = document.createElement('div');
+          mask.className = 'qr-mask';
+          mask.innerHTML = QR_MASK_SVG;
+          body.appendChild(mask);
+          part.onclick = () => selectQrPart(i);
+        }
+      } else {
+        let msg;
+        if (!multi) {
+          msg = totalLines < 2
+            ? '長すぎてQRコードに入りません。1行のため分割もできません。メモを短くするか、改行を入れてください。'
+            : '長すぎて、QRコード1つには入りません。<br>下の「2分割」か「3分割」を選んでください。';
+        } else {
+          msg = qrGenSplit < 3
+            ? 'この部分はまだ長すぎます。<br>分割数を増やしてください。'
+            : 'この部分はまだ長すぎます。<br>メモを短くするか、改行を入れてください。';
+        }
+        body.innerHTML = `<div class="qr-error">${msg}</div>`;
+      }
+      part.appendChild(body);
+      target.appendChild(part);
+    });
+    target.scrollTop = 0;
+    if (multi) applyQrSelection();
+
+    const btns = [1, 2, 3].map(n =>
+      `<button type="button" class="qr-split-btn${qrGenSplit === n ? ' active' : ''}" ${n > totalLines ? 'disabled' : ''} onclick="setQrSplit(${n})">${n === 1 ? '分割なし' : n + '分割'}</button>`
+    ).join('');
+    bar.innerHTML = `<div class="qr-split-info">全${totalChars}字・${totalLines}行　読み取りにくいときは分割できます</div><div class="qr-split-btns">${btns}</div>`;
+
+    help.innerHTML = multi
+      ? '相手のスマートフォンで、1番から順に1つずつ読み取ってください。<br>読み取り対象以外は×印で隠れます。読み取ったら、次のQRコードをタップして切り替えてください。<br>読み取った文章は、入力欄の末尾に続けて追加されます。'
+      : '相手のスマートフォンで読み取ってください。<br>QRコードにはメモ本文がそのまま入っています。';
   }
 
   function closeMemoQrModal() {
     document.getElementById('memoQrModal').style.display = 'none';
     document.getElementById('memoQrCode').innerHTML = '';
+    document.getElementById('memoQrSplitBar').innerHTML = '';
   }
 
   function openMemoModal(id) {
@@ -1373,7 +1540,7 @@
     if (!r) return;
     const labels = memoLabelsOf(r);
     const dots = labels.length ? labels.map(id => `<span style="color:${labelColor(id).hex};">●</span>`).join(' ') : `<span style="color:${UNCLASSIFIED.hex};">●</span>`;
-    document.getElementById('modalTitle').innerHTML = `${dots} ${r.date}`;
+    document.getElementById('modalTitle').innerHTML = `${dots} ${r.date}<span style="margin-left:8px;font-weight:normal;font-size:calc(1em - 1px);color:var(--sub-text);white-space:nowrap;">${memoCountText(r.text)}</span>`;
     document.getElementById('modalBodyText').textContent = r.text;
     document.getElementById('memoModal').style.display = 'flex';
   }
