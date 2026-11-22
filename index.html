@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" sizes="192x192" href="iconq01_192.png">
 <link rel="apple-touch-icon" href="iconq01_192.png">
-<title>MEMO-Q_v2.4.1</title>
-<!-- Version: v2.4.1 -->
+<title>MEMO-Q_v3.0.0</title>
+<!-- Version: v3.0.0 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -25,6 +25,9 @@
     --primary-active: #004c99;
     --sub-text: #666;
     --edit-bg: #fffdf0;
+    --dc-red: #d32f2f;
+    --dc-blue: #1565c0;
+    --dc-hl: #fff176;
   }
 
   body.dark-mode {
@@ -44,6 +47,9 @@
     --primary-active: #2563eb;
     --sub-text: #aaa;
     --edit-bg: #2a281e;
+    --dc-red: #ff7b7b;
+    --dc-blue: #7db8ff;
+    --dc-hl: rgba(255, 214, 10, .38);
   }
 
   body {
@@ -331,13 +337,29 @@
     opacity:0; pointer-events:none; transition:opacity .2s;
   }
   .memo-toast.show { opacity:1; }
+  /* v3.0.0 文字装飾 */
+  .dc-b { font-weight: 800; }
+  .dc-r { color: var(--dc-red); }
+  .dc-u { color: var(--dc-blue); }
+  .dc-h { background: var(--dc-hl); border-radius: 3px; padding: 0 1px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .dc-s { text-decoration: line-through; }
+  .deco-wrap { margin-top: 6px; }
+  .deco-toggle { border: 0; background: transparent; color: var(--sub-text); font-family: inherit; font-size: calc(0.8rem - 2px); padding: 6px 0; cursor: pointer; }
+  .deco-arrow { display: inline-block; transition: transform .15s; }
+  .deco-wrap.open .deco-arrow { transform: rotate(90deg); }
+  .deco-bar { display: none; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+  .deco-wrap.open .deco-bar { display: flex; }
+  .deco-btn { min-width: 42px; height: 36px; padding: 0 8px; border: 1px solid var(--input-border); border-radius: 7px; background: var(--card-bg); color: var(--text-color); font-family: inherit; font-size: .9rem; cursor: pointer; }
+  .deco-btn:active { background: var(--item-box-bg); }
+  .deco-btn.clear { font-size: .76rem; color: var(--sub-text); }
+  .deco-hint { flex-basis: 100%; font-size: .7rem; color: var(--sub-text); line-height: 1.4; }
   .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v2.4.1</span></button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.0.0</span></button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -378,6 +400,7 @@
           <button type="button" class="qr-read-link" onclick="openQrScanner()">QRコードから読み込み</button>
         </div>
         <textarea id="memoText" placeholder="メモ内容を入力..."></textarea>
+        <div id="memoDecoHost"></div>
       </div>
       <div class="row">
         <div><button type="button" class="main-btn" onclick="addMemoRecord()">OK</button></div>
@@ -531,6 +554,7 @@
       if (savedSort === 'desc' || savedSort === 'asc' || savedSort === 'manual') memoSortOrder = savedSort;
     } catch (_) {}
 
+    renderDecoHost();
     renderNewMemoColorPicker();
     renderMemoFilterOptions();
     updateSelectionToggle();
@@ -1121,7 +1145,7 @@
             <div><label>日付</label><input type="date" id="editMemoDate_${r.id}" value="${r.date}"></div>
           </div>
           <div class="form-group"><label>ラベル（2つまで）</label><div class="label-picker" id="editMemoLabels_${r.id}">${labelChoices}</div></div>
-          <div><label>テキスト</label><textarea id="editMemoText_${r.id}">${escapeHtml(r.text)}</textarea></div>
+          <div><label>テキスト</label><textarea id="editMemoText_${r.id}">${escapeHtml(r.text)}</textarea>${decoBarHtml('editMemoText_' + r.id)}</div>
           <div class="memo-edit-actions"><button type="button" class="btn-ok" onclick="saveMemoEdit(${r.id})">保存</button><button type="button" class="btn-cancel" onclick="memoEditingId=null;renderMemos();">キャンセル</button></div>`;
         box.appendChild(edit);
         return;
@@ -1151,7 +1175,7 @@
           <div class="memo-date">${escapeHtml(r.date)}</div>
         </div>
         <div class="memo-main">
-          <div class="memo-text" onclick="if(!selectionMode){event.stopPropagation();openMemoModal(${r.id});}">${escapeHtml(r.text)}</div>
+          <div class="memo-text" onclick="if(!selectionMode){event.stopPropagation();openMemoModal(${r.id});}"><span>${decoRenderHtml(r.text)}</span></div>
           <div class="memo-count">${memoCountText(r.text)}</div>
         </div>
         ${kebab}`;
@@ -1203,17 +1227,18 @@
   async function copyMemoText(id) {
     const r = memoRecords.find(x => x.id === id);
     if (!r) return;
+    const plain = decoToPlain(r.text);   // 装飾の記号を取り除いた、普通の文章
     let ok = false;
     try {
       if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(r.text);
+        await navigator.clipboard.writeText(plain);
         ok = true;
       }
     } catch (_) {}
     if (!ok) {
       try {
         const ta = document.createElement('textarea');
-        ta.value = r.text;
+        ta.value = plain;
         ta.setAttribute('readonly', '');
         ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
         document.body.appendChild(ta);
@@ -1395,10 +1420,232 @@
     if (document.hidden && qrScanActive && qrScanStream) closeQrScanner();
   });
 
+  // ===== v3.0.0 文字装飾（∩ 開始 ＋ 終わりの記号で種類を決める方式） =====
+  // 書き方: ∩装飾したい文字!!   （開始は ∩ だけ。終わりの記号が種類を表す）
+  //   ** 太字 / !! 赤字 / ++ 青字 / == 黄色の強調 / ~~ 取り消し線
+  //   終わりの記号を続けて並べると重ねがけ（例: ∩要注意!!**）。同じ種類は重ねない。
+  // ルール:
+  //   ・1行の中だけで成立する（行をまたがない）。
+  //   ・∩ の直後の1文字は、必ず中身として扱う（中身が空の装飾は作らない）。
+  //   ・中身は、最初に現れる終わりの記号まで。その前に別の ∩ が来たら、先の ∩ は文字のまま。
+  //   ・終わりの記号がそろわない ∩ は、装飾にせず文字のまま。
+  const DECO_OPEN = '∩';
+  const DECO_TYPE_OF = { '**': 'b', '!!': 'r', '++': 'u', '==': 'h', '~~': 's' };
+  const DECO_TOKEN_OF = { b: '**', r: '!!', u: '++', h: '==', s: '~~' };
+  const DECO_ORDER = ['b', 'r', 'u', 'h', 's'];
+
+  // 1行を解析して、装飾が成立した範囲（unit）の一覧を返す
+  function decoParseLine(line) {
+    const units = [];
+    const n = line.length;
+    let i = 0;
+    while (i < n) {
+      if (line[i] === DECO_OPEN && i + 1 < n && line[i + 1] !== DECO_OPEN) {
+        const cp = line.codePointAt(i + 1);
+        const j = i + 1 + (cp > 0xFFFF ? 2 : 1);
+        let k = -1;
+        for (let x = j; x < n; x++) {
+          if (line[x] === DECO_OPEN) break;
+          if (DECO_TYPE_OF[line.substr(x, 2)]) { k = x; break; }
+        }
+        if (k >= 0) {
+          const types = [DECO_TYPE_OF[line.substr(k, 2)]];
+          let p = k + 2;
+          while (p < n) {
+            const t = DECO_TYPE_OF[line.substr(p, 2)];
+            if (t && !types.includes(t)) { types.push(t); p += 2; } else break;
+          }
+          units.push({ start: i, end: p, text: line.slice(i + 1, k), types });
+          i = p;
+          continue;
+        }
+      }
+      i++;
+    }
+    return units;
+  }
+
+  function decoBuildUnit(text, types) {
+    const ordered = DECO_ORDER.filter(t => types.includes(t));
+    return DECO_OPEN + text + ordered.map(t => DECO_TOKEN_OF[t]).join('');
+  }
+
+  // 装飾も記号も取り除いた、普通の文章にする（全文コピー・文字数に使う）
+  function decoToPlain(text) {
+    return String(text).split('\n').map(line => {
+      const units = decoParseLine(line);
+      if (!units.length) return line;
+      let out = '', cur = 0;
+      units.forEach(u => { out += line.slice(cur, u.start) + u.text; cur = u.end; });
+      return out + line.slice(cur);
+    }).join('\n');
+  }
+
+  // 画面表示用のHTMLにする（文字は必ずエスケープする）
+  function decoRenderHtml(text) {
+    return String(text).split('\n').map(line => {
+      const units = decoParseLine(line);
+      if (!units.length) return escapeHtml(line);
+      let out = '', cur = 0;
+      units.forEach(u => {
+        out += escapeHtml(line.slice(cur, u.start));
+        out += `<span class="dc ${u.types.map(t => 'dc-' + t).join(' ')}">${escapeHtml(u.text)}</span>`;
+        cur = u.end;
+      });
+      return out + escapeHtml(line.slice(cur));
+    }).join('\n');
+  }
+
+  // 位置 pos を含む装飾の範囲（全体の文字位置）を返す。なければ null
+  function decoUnitAt(value, pos) {
+    const lines = value.split('\n');
+    let off = 0;
+    for (const line of lines) {
+      if (pos >= off && pos <= off + line.length) {
+        const p = pos - off;
+        const u = decoParseLine(line).find(x => x.start <= p && p <= x.end);
+        return u ? [off + u.start, off + u.end] : null;
+      }
+      off += line.length + 1;
+    }
+    return null;
+  }
+
+  // 選択範囲を行ごとに処理する共通部分。fn(line, a, b) が { text, } を返す
+  function decoEachSelectedLine(value, selStart, selEnd, fn) {
+    const lines = value.split('\n');
+    const out = [];
+    let off = 0, outLen = 0, newStart = null, newEnd = null, changed = false;
+    for (const line of lines) {
+      const ls = off, le = off + line.length;
+      off = le + 1;
+      let a = Math.max(selStart, ls) - ls;
+      let b = Math.min(selEnd, le) - ls;
+      let newLine = line;
+      if (a < b) {
+        // 装飾の途中から選んでいたら、その装飾の全体に広げる
+        decoParseLine(line).forEach(u => {
+          if (u.start < a && a < u.end) a = u.start;
+          if (u.start < b && b < u.end) b = u.end;
+        });
+        const rep = fn(line, a, b);
+        if (rep !== null) {
+          newLine = line.slice(0, a) + rep + line.slice(b);
+          if (newStart === null) newStart = outLen + a;
+          newEnd = outLen + a + rep.length;
+          changed = true;
+        }
+      }
+      out.push(newLine);
+      outLen += newLine.length + 1;
+    }
+    return changed ? { value: out.join('\n'), start: newStart, end: newEnd } : null;
+  }
+
+  // 装飾ボタン（type: b/r/u/h/s）。全部にその装飾がついていれば外し、そうでなければつける。
+  function decoApply(value, selStart, selEnd, type) {
+    return decoEachSelectedLine(value, selStart, selEnd, (line, a, b) => {
+      const units = decoParseLine(line).filter(u => u.end > a && u.start < b);
+      const pieces = [];
+      let cur = a;
+      units.forEach(u => {
+        if (u.start > cur) pieces.push({ plain: line.slice(cur, u.start) });
+        pieces.push({ unit: u });
+        cur = u.end;
+      });
+      if (cur < b) pieces.push({ plain: line.slice(cur, b) });
+      const hasPlainText = pieces.some(p => p.plain !== undefined && p.plain.trim() !== '');
+      const hasUnit = pieces.some(p => p.unit);
+      if (!hasPlainText && !hasUnit) return null;
+      const removing = !hasPlainText && pieces.filter(p => p.unit).every(p => p.unit.types.includes(type));
+      let rep = '';
+      pieces.forEach(p => {
+        if (p.unit) {
+          const u = p.unit;
+          if (removing) {
+            const t = u.types.filter(x => x !== type);
+            rep += t.length ? decoBuildUnit(u.text, t) : u.text;
+          } else {
+            rep += u.types.includes(type) ? line.slice(u.start, u.end) : decoBuildUnit(u.text, u.types.concat(type));
+          }
+        } else {
+          const m = p.plain.match(/^(\s*)([\s\S]*?)(\s*)$/);
+          if (m[2] === '' || m[2].includes(DECO_OPEN)) rep += p.plain;
+          else rep += m[1] + decoBuildUnit(m[2], [type]) + m[3];
+        }
+      });
+      return rep;
+    });
+  }
+
+  // 解除ボタン。選択範囲にかかる装飾を、すべて外す。
+  function decoClear(value, selStart, selEnd) {
+    return decoEachSelectedLine(value, selStart, selEnd, (line, a, b) => {
+      const units = decoParseLine(line).filter(u => u.end > a && u.start < b);
+      if (!units.length) return null;
+      let rep = '', cur = a;
+      units.forEach(u => { rep += line.slice(cur, u.start) + u.text; cur = u.end; });
+      return rep + line.slice(cur, b);
+    });
+  }
+
+  // ===== v3.0.0 装飾バー（折り畳み） =====
+  const DECO_BAR_KEY = 'memo_deco_bar_open_v1';
+  function decoBarOpen() {
+    try { return localStorage.getItem(DECO_BAR_KEY) === '1'; } catch (_) { return false; }
+  }
+  function decoBarHtml(taId) {
+    const open = decoBarOpen();
+    const b = (type, label, aria, style) =>
+      `<button type="button" class="deco-btn" ${style ? `style="${style}"` : ''} aria-label="${aria}" onmousedown="event.preventDefault()" onclick="applyDeco('${taId}','${type}')">${label}</button>`;
+    return `<div class="deco-wrap${open ? ' open' : ''}">
+      <button type="button" class="deco-toggle" aria-expanded="${open}" onclick="toggleDecoBars()">装飾 <span class="deco-arrow">▸</span></button>
+      <div class="deco-bar">
+        ${b('b', 'B', '太字', 'font-weight:800;')}
+        ${b('r', '赤', '赤字', 'color:var(--dc-red);font-weight:700;')}
+        ${b('u', '青', '青字', 'color:var(--dc-blue);font-weight:700;')}
+        ${b('h', '黄', '黄色の強調', 'background:var(--dc-hl);')}
+        ${b('s', '取消', '取り消し線', 'text-decoration:line-through;')}
+        ${b('clear', '解除', '装飾を解除', '').replace('class="deco-btn"', 'class="deco-btn clear"')}
+        <div class="deco-hint">文字を選んで押します。もう一度押すと外れます。</div>
+      </div>
+    </div>`;
+  }
+  function renderDecoHost() {
+    const host = document.getElementById('memoDecoHost');
+    if (host) host.innerHTML = decoBarHtml('memoText');
+  }
+  function toggleDecoBars() {
+    const open = !decoBarOpen();
+    try { localStorage.setItem(DECO_BAR_KEY, open ? '1' : '0'); } catch (_) {}
+    document.querySelectorAll('.deco-wrap').forEach(w => {
+      w.classList.toggle('open', open);
+      const t = w.querySelector('.deco-toggle');
+      if (t) t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+  function applyDeco(taId, type) {
+    const ta = document.getElementById(taId);
+    if (!ta) return;
+    const v = ta.value;
+    let s = ta.selectionStart, e = ta.selectionEnd;
+    if (s === e) {
+      // 選択がなくても、カーソルが装飾の上にあれば、その装飾を対象にする
+      const r = decoUnitAt(v, s);
+      if (!r) { showMemoToast('装飾する文字を選択してください'); return; }
+      s = r[0]; e = r[1];
+    }
+    const res = (type === 'clear') ? decoClear(v, s, e) : decoApply(v, s, e, type);
+    if (!res) { showMemoToast(type === 'clear' ? '外せる装飾がありません' : '装飾する文字を選択してください'); return; }
+    ta.value = res.value;
+    try { ta.focus({ preventScroll: true }); ta.setSelectionRange(res.start, res.end); } catch (_) {}
+  }
+
   // ===== v2.3.0 文字数/行数 =====
-  function memoCountText(text) {
-    const chars = Array.from(text).length;
-    const lines = text.split(/\r\n|\r|\n/).length;
+  function memoCountText(text, raw) {
+    const t = raw ? text : decoToPlain(text);
+    const chars = Array.from(t).length;
+    const lines = t.split(/\r\n|\r|\n/).length;
     return `${chars}字/${lines}行`;
   }
 
@@ -1502,7 +1749,7 @@
       const part = document.createElement('div');
       part.className = 'qr-part';
       if (multi) {
-        part.innerHTML = `<div class="qr-part-label">${i + 1}/${parts.length}（${memoCountText(p)}）<span class="qr-part-state"></span></div>`;
+        part.innerHTML = `<div class="qr-part-label">${i + 1}/${parts.length}（${memoCountText(p, true)}）<span class="qr-part-state"></span></div>`;
       }
       const body = document.createElement('div');
       body.className = 'qr-part-body';
@@ -1556,7 +1803,7 @@
     const labels = memoLabelsOf(r);
     const dots = labels.length ? labels.map(id => `<span style="color:${labelColor(id).hex};">●</span>`).join(' ') : `<span style="color:${UNCLASSIFIED.hex};">●</span>`;
     document.getElementById('modalTitle').innerHTML = `${dots} ${r.date}<span style="margin-left:8px;font-weight:normal;font-size:calc(1em - 1px);color:var(--sub-text);white-space:nowrap;">${memoCountText(r.text)}</span>`;
-    document.getElementById('modalBodyText').textContent = r.text;
+    document.getElementById('modalBodyText').innerHTML = decoRenderHtml(r.text);
     document.getElementById('memoModal').style.display = 'flex';
   }
 
