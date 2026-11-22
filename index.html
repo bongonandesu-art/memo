@@ -3,8 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MEMO-Q_v2.3.1</title>
-<!-- Version: v2.3.1 -->
+<link rel="icon" type="image/png" sizes="192x192" href="iconq01_192.png">
+<link rel="apple-touch-icon" href="iconq01_192.png">
+<title>MEMO-Q_v2.4.0</title>
+<!-- Version: v2.4.0 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -60,10 +62,13 @@
   }
   .app-title-button {
     flex: 1 1 auto; min-width: 0; padding: 7px 2px; border: 0;
+    display: flex; align-items: center; gap: 5px;
     background: transparent; color: var(--text-color); text-align: left;
     font-size: 1.08rem; font-weight: 800; letter-spacing: .02em;
     white-space: nowrap; cursor: pointer;
   }
+  .app-logo { display: block; height: 24px; width: auto; max-width: 100%; min-width: 0; flex: 0 1 auto; object-fit: contain; }
+  .app-version { flex: none; align-self: flex-end; margin-bottom: 2px; font-size: .66rem; font-weight: 600; letter-spacing: .02em; color: var(--sub-text); }
   .nav-buttons { display: flex; gap: 6px; flex: 1; min-width: 0; }
   .nav-btn {
     flex: 1; min-width: 0; padding: 9px 5px; font-size: 0.88rem; font-weight: bold;
@@ -332,7 +337,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false">MEMO-Q_v2.3.1</button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v2.4.0</span></button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -459,6 +464,7 @@
   ];
   const UNCLASSIFIED = { id: 'gray', name: '未分類', hex: '#dfd2c2' };
   const LABEL_NAMES_KEY = 'memo_label_names_v1';
+  const SORT_KEY = 'memo_sort_order_v1';
   const DEFAULT_LABEL_NAMES = {
     coffee:'分類1', smoky:'分類2', rose:'分類3',
     sage:'分類4', mustard:'分類5', lavender:'分類6'
@@ -519,6 +525,12 @@
     }
     if (memoRecords.length > 0) localStorage.setItem(INTRO_SEEN_KEY, '1');
 
+    // 前回の並び順（日付▼／日付▲／手動）を復元する。保存がなければ日付の降順。
+    try {
+      const savedSort = localStorage.getItem(SORT_KEY);
+      if (savedSort === 'desc' || savedSort === 'asc' || savedSort === 'manual') memoSortOrder = savedSort;
+    } catch (_) {}
+
     renderNewMemoColorPicker();
     renderMemoFilterOptions();
     updateSelectionToggle();
@@ -526,8 +538,7 @@
     updateMemoSortBtnLabel();
 
     setupDragAndDrop('memoListBody', () => memoEditingId !== null, ids => {
-      memoSortOrder = 'manual';
-      updateMemoSortBtnLabel();
+      setMemoSortOrder('manual');
       const reorderedSubset = ids.map(id => memoRecords.find(r => r.id === id)).filter(Boolean);
       const idSet = new Set(ids);
       let subIdx = 0;
@@ -933,9 +944,14 @@
     closeMemoLabelSettings();
   }
 
-  function toggleMemoDateSort() {
-    memoSortOrder = (memoSortOrder === 'desc') ? 'asc' : (memoSortOrder === 'asc' ? 'manual' : 'desc');
+  function setMemoSortOrder(order) {
+    memoSortOrder = order;
+    try { localStorage.setItem(SORT_KEY, order); } catch (_) {}
     updateMemoSortBtnLabel();
+  }
+
+  function toggleMemoDateSort() {
+    setMemoSortOrder((memoSortOrder === 'desc') ? 'asc' : (memoSortOrder === 'asc' ? 'manual' : 'desc'));
     renderMemos();
   }
 
@@ -1046,8 +1062,7 @@
 
   function moveMemoIds(ids, direction) {
     if (!ids.length) return;
-    memoSortOrder = 'manual';
-    updateMemoSortBtnLabel();
+    setMemoSortOrder('manual');
     const movingSet = new Set(ids);
     const moving = memoRecords.filter(r => movingSet.has(r.id));
     memoRecords = memoRecords.filter(r => !movingSet.has(r.id));
