@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" sizes="192x192" href="iconq01_192.png">
 <link rel="apple-touch-icon" href="iconq01_192.png">
-<title>MEMO-Q_v3.1.0</title>
-<!-- Version: v3.1.0 -->
+<title>MEMO-Q_v3.2.0</title>
+<!-- Version: v3.2.0 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -353,6 +353,7 @@
   .mv-close { order: 2; flex: none; border: 0; border-radius: 4px; background: #6c757d; color: #fff; padding: 8px 14px; font-size: .85rem; cursor: pointer; }
   .mv-tools { order: 3; flex: 1 1 100%; display: flex; align-items: center; gap: 6px; }
   .mv-fs { display: inline-flex; gap: 4px; margin-left: auto; }
+  .mv-tools .mv-tool { white-space: nowrap; }
   .mv-tool { min-width: 38px; height: 32px; padding: 0 9px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--card-bg); color: var(--text-color); font-family: inherit; font-size: .8rem; cursor: pointer; }
   .mv-tool.active { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
   .mv-fs-val { min-width: 54px; }
@@ -366,6 +367,7 @@
   }
   .mv-text { white-space: pre-wrap; word-break: break-all; line-height: 1.55; font-size: calc(0.95rem * var(--mv-scale, 1)); }
   .memo-viewer.nowrap .mv-text { white-space: pre; word-break: normal; width: max-content; min-width: 100%; }
+  .memo-viewer.mono .mv-text { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Noto Sans Mono", "Droid Sans Mono", monospace; font-variant-ligatures: none; tab-size: 4; }
   /* ピンチで拡大して「閉じる」が画面の外に出たときだけ出す、追従する閉じるボタン */
   .mv-float-close {
     display: none; position: absolute; left: 0; top: 0; width: 84px; height: 36px; align-items: center; justify-content: center;
@@ -393,7 +395,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.1.0</span></button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.2.0</span></button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -457,6 +459,7 @@
       <button type="button" class="mv-close" onclick="closeMemoModal()">閉じる</button>
       <div class="mv-tools">
         <button type="button" class="mv-tool" id="mvWrapBtn" aria-pressed="false" onclick="toggleViewerNowrap()">折り返しなし</button>
+        <button type="button" class="mv-tool" id="mvMonoBtn" aria-pressed="false" onclick="toggleViewerMono()">等幅</button>
         <span class="mv-fs">
           <button type="button" class="mv-tool" aria-label="文字を小さく" onclick="changeViewerFont(-10)">－</button>
           <button type="button" class="mv-tool mv-fs-val" id="mvFsVal" aria-label="文字サイズを100%に戻す" onclick="changeViewerFont(0)">100%</button>
@@ -976,9 +979,14 @@
     closeInputPanel('memo');
   }
 
+  // 先頭の「空行」と、末尾の空白・改行だけを削る。各行の文頭スペースと、行の途中の連続スペースは残す。
+  function normalizeMemoText(v) {
+    return String(v).replace(/\r\n?/g, '\n').replace(/^(?:[ \t\u3000]*\n)+/, '').replace(/\s+$/, '');
+  }
+
   function addMemoRecord() {
     const date = document.getElementById('memoDate').value;
-    const text = document.getElementById('memoText').value.trim();
+    const text = normalizeMemoText(document.getElementById('memoText').value);
     if (!date || !text) return alert('日付とテキストを入力してください');
     memoRecords.unshift({ id: Date.now(), done: false, date, labels: selectedNewMemoColors.slice(0,2), text });
     localStorage.setItem(MEMO_KEY, JSON.stringify(memoRecords));
@@ -1068,7 +1076,7 @@
   function saveMemoEdit(id) {
     const date = document.getElementById(`editMemoDate_${id}`).value;
     const labels = [...document.querySelectorAll(`#editMemoLabels_${id} input:checked`)].map(el => el.value).filter(v => v !== 'gray').slice(0,2);
-    const text = document.getElementById(`editMemoText_${id}`).value.trim();
+    const text = normalizeMemoText(document.getElementById(`editMemoText_${id}`).value);
     if (!text) return deleteMemoRecord(id);
     if (!date) return alert('日付を入力してください');
     const idx = memoRecords.findIndex(r => r.id === id);
@@ -1843,8 +1851,10 @@
   // ===== v3.1.0 全画面メモビューア =====
   const MV_SCALE_KEY = 'memo_viewer_scale_v1';
   const MV_NOWRAP_KEY = 'memo_viewer_nowrap_v1';
+  const MV_MONO_KEY = 'memo_viewer_mono_v1';
   let mvScale = 100;        // 文字サイズ（%）
   let mvNowrap = false;     // 折り返しなし
+  let mvMono = false;       // 等幅フォント
   let memoViewerOpen = false;
 
   function loadViewerPrefs() {
@@ -1852,6 +1862,7 @@
       const sc = Number(localStorage.getItem(MV_SCALE_KEY));
       if (sc >= 50 && sc <= 300) mvScale = Math.round(sc / 10) * 10;
       mvNowrap = localStorage.getItem(MV_NOWRAP_KEY) === '1';
+      mvMono = localStorage.getItem(MV_MONO_KEY) === '1';
     } catch (_) {}
   }
 
@@ -1862,12 +1873,22 @@
     const wb = document.getElementById('mvWrapBtn');
     wb.classList.toggle('active', mvNowrap);
     wb.setAttribute('aria-pressed', mvNowrap ? 'true' : 'false');
+    v.classList.toggle('mono', mvMono);
+    const mb = document.getElementById('mvMonoBtn');
+    mb.classList.toggle('active', mvMono);
+    mb.setAttribute('aria-pressed', mvMono ? 'true' : 'false');
     document.getElementById('mvFsVal').textContent = mvScale + '%';
   }
 
   function toggleViewerNowrap() {
     mvNowrap = !mvNowrap;
     try { localStorage.setItem(MV_NOWRAP_KEY, mvNowrap ? '1' : '0'); } catch (_) {}
+    applyViewerPrefs();
+  }
+
+  function toggleViewerMono() {
+    mvMono = !mvMono;
+    try { localStorage.setItem(MV_MONO_KEY, mvMono ? '1' : '0'); } catch (_) {}
     applyViewerPrefs();
   }
 
