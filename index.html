@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" sizes="192x192" href="iconq01_192.png">
 <link rel="apple-touch-icon" href="iconq01_192.png">
-<title>MEMO-Q_v3.0.0</title>
-<!-- Version: v3.0.0 -->
+<title>MEMO-Q_v3.0.1</title>
+<!-- Version: v3.0.1 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -359,7 +359,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.0.0</span></button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.0.1</span></button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -1421,17 +1421,18 @@
   });
 
   // ===== v3.0.0 文字装飾（∩ 開始 ＋ 終わりの記号で種類を決める方式） =====
-  // 書き方: ∩装飾したい文字!!   （開始は ∩ だけ。終わりの記号が種類を表す）
-  //   ** 太字 / !! 赤字 / ++ 青字 / == 黄色の強調 / ~~ 取り消し線
-  //   終わりの記号を続けて並べると重ねがけ（例: ∩要注意!!**）。同じ種類は重ねない。
+  // 書き方: ∩装飾したい文字¡¡   （開始は ∩ だけ。終わりの記号が種類を表す）
+  //   ** 太字 / ¡¡ 赤字 / ++ 青字 / == 黄色の強調 / ~~ 取り消し線
+  //   （赤字の記号に !! を使わないのは、「すごい!!」のように普通の文章に出てくる文字列だから）
+  //   終わりの記号を続けて並べると重ねがけ（例: ∩要注意¡¡**）。同じ種類は重ねない。
   // ルール:
   //   ・1行の中だけで成立する（行をまたがない）。
   //   ・∩ の直後の1文字は、必ず中身として扱う（中身が空の装飾は作らない）。
   //   ・中身は、最初に現れる終わりの記号まで。その前に別の ∩ が来たら、先の ∩ は文字のまま。
   //   ・終わりの記号がそろわない ∩ は、装飾にせず文字のまま。
   const DECO_OPEN = '∩';
-  const DECO_TYPE_OF = { '**': 'b', '!!': 'r', '++': 'u', '==': 'h', '~~': 's' };
-  const DECO_TOKEN_OF = { b: '**', r: '!!', u: '++', h: '==', s: '~~' };
+  const DECO_TYPE_OF = { '**': 'b', '¡¡': 'r', '++': 'u', '==': 'h', '~~': 's' };
+  const DECO_TOKEN_OF = { b: '**', r: '¡¡', u: '++', h: '==', s: '~~' };
   const DECO_ORDER = ['b', 'r', 'u', 'h', 's'];
 
   // 1行を解析して、装飾が成立した範囲（unit）の一覧を返す
