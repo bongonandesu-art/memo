@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" sizes="192x192" href="iconq01_192.png">
 <link rel="apple-touch-icon" href="iconq01_192.png">
-<title>MEMO-Q_v3.0.1</title>
-<!-- Version: v3.0.1 -->
+<title>MEMO-Q_v3.1.0</title>
+<!-- Version: v3.1.0 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -337,6 +337,40 @@
     opacity:0; pointer-events:none; transition:opacity .2s;
   }
   .memo-toast.show { opacity:1; }
+  /* v3.1.0 全画面メモビューア（ヘッダー固定／本文は縦横スクロール） */
+  .memo-viewer {
+    display: none; position: fixed; inset: 0; z-index: 1000; flex-direction: column;
+    background: var(--card-bg); color: var(--text-color);
+    padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
+  }
+  body.mv-open { overflow: hidden; }
+  .mv-head {
+    flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--input-border); background: var(--card-bg);
+  }
+  .mv-title { order: 1; flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .95rem; }
+  .mv-close { order: 2; flex: none; border: 0; border-radius: 4px; background: #6c757d; color: #fff; padding: 8px 14px; font-size: .85rem; cursor: pointer; }
+  .mv-tools { order: 3; flex: 1 1 100%; display: flex; align-items: center; gap: 6px; }
+  .mv-fs { display: inline-flex; gap: 4px; margin-left: auto; }
+  .mv-tool { min-width: 38px; height: 32px; padding: 0 9px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--card-bg); color: var(--text-color); font-family: inherit; font-size: .8rem; cursor: pointer; }
+  .mv-tool.active { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
+  .mv-fs-val { min-width: 54px; }
+  @media (min-width: 600px) {
+    .mv-tools { order: 2; flex: none; }
+    .mv-close { order: 3; }
+  }
+  .mv-body {
+    flex: 1 1 auto; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
+  }
+  .mv-text { white-space: pre-wrap; word-break: break-all; line-height: 1.55; font-size: calc(0.95rem * var(--mv-scale, 1)); }
+  .memo-viewer.nowrap .mv-text { white-space: pre; word-break: normal; width: max-content; min-width: 100%; }
+  /* ピンチで拡大して「閉じる」が画面の外に出たときだけ出す、追従する閉じるボタン */
+  .mv-float-close {
+    display: none; position: absolute; left: 0; top: 0; width: 84px; height: 36px; align-items: center; justify-content: center;
+    transform-origin: 0 0; border: 0; border-radius: 18px; background: rgba(60,60,60,.92); color: #fff; font-size: .85rem; z-index: 2; cursor: pointer;
+  }
   /* v3.0.0 文字装飾 */
   .dc-b { font-weight: 800; }
   .dc-r { color: var(--dc-red); }
@@ -359,7 +393,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.0.1</span></button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.1.0</span></button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -417,14 +451,21 @@
   </div>
 
   <!-- 全文表示ポップアップ -->
-  <div class="modal-overlay" id="memoModal" onclick="closeMemoModal()">
-    <div class="modal-box" onclick="event.stopPropagation()">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <strong id="modalTitle">メモ詳細</strong>
-        <button type="button" class="btn-cancel" style="width:auto;" onclick="closeMemoModal()">閉じる</button>
+  <div class="memo-viewer" id="memoModal" role="dialog" aria-modal="true" aria-label="メモ全文">
+    <div class="mv-head">
+      <strong class="mv-title" id="modalTitle">メモ詳細</strong>
+      <button type="button" class="mv-close" onclick="closeMemoModal()">閉じる</button>
+      <div class="mv-tools">
+        <button type="button" class="mv-tool" id="mvWrapBtn" aria-pressed="false" onclick="toggleViewerNowrap()">折り返しなし</button>
+        <span class="mv-fs">
+          <button type="button" class="mv-tool" aria-label="文字を小さく" onclick="changeViewerFont(-10)">－</button>
+          <button type="button" class="mv-tool mv-fs-val" id="mvFsVal" aria-label="文字サイズを100%に戻す" onclick="changeViewerFont(0)">100%</button>
+          <button type="button" class="mv-tool" aria-label="文字を大きく" onclick="changeViewerFont(10)">＋</button>
+        </span>
       </div>
-      <div class="modal-content" id="modalBodyText"></div>
     </div>
+    <div class="mv-body" id="mvBody"><div class="mv-text" id="modalBodyText"></div></div>
+    <button type="button" class="mv-float-close" id="mvFloatClose" aria-label="閉じる" onclick="closeMemoModal()">✕ 閉じる</button>
   </div>
 
   <div class="modal-overlay" id="memoQrModal" onclick="closeMemoQrModal()">
@@ -515,6 +556,7 @@
   let openKebabId = null;
 
   window.onload = () => {
+    try { if (history.state && history.state.memoViewer) history.replaceState(null, ''); } catch (_) {}
     const today = new Date().toISOString().slice(0, 10);
     document.getElementById('memoDate').value = today;
 
@@ -1798,6 +1840,44 @@
     document.getElementById('memoQrSplitBar').innerHTML = '';
   }
 
+  // ===== v3.1.0 全画面メモビューア =====
+  const MV_SCALE_KEY = 'memo_viewer_scale_v1';
+  const MV_NOWRAP_KEY = 'memo_viewer_nowrap_v1';
+  let mvScale = 100;        // 文字サイズ（%）
+  let mvNowrap = false;     // 折り返しなし
+  let memoViewerOpen = false;
+
+  function loadViewerPrefs() {
+    try {
+      const sc = Number(localStorage.getItem(MV_SCALE_KEY));
+      if (sc >= 50 && sc <= 300) mvScale = Math.round(sc / 10) * 10;
+      mvNowrap = localStorage.getItem(MV_NOWRAP_KEY) === '1';
+    } catch (_) {}
+  }
+
+  function applyViewerPrefs() {
+    const v = document.getElementById('memoModal');
+    v.classList.toggle('nowrap', mvNowrap);
+    v.style.setProperty('--mv-scale', String(mvScale / 100));
+    const wb = document.getElementById('mvWrapBtn');
+    wb.classList.toggle('active', mvNowrap);
+    wb.setAttribute('aria-pressed', mvNowrap ? 'true' : 'false');
+    document.getElementById('mvFsVal').textContent = mvScale + '%';
+  }
+
+  function toggleViewerNowrap() {
+    mvNowrap = !mvNowrap;
+    try { localStorage.setItem(MV_NOWRAP_KEY, mvNowrap ? '1' : '0'); } catch (_) {}
+    applyViewerPrefs();
+  }
+
+  // delta が 0 のときは 100% に戻す
+  function changeViewerFont(delta) {
+    mvScale = delta === 0 ? 100 : Math.max(50, Math.min(300, mvScale + delta));
+    try { localStorage.setItem(MV_SCALE_KEY, String(mvScale)); } catch (_) {}
+    applyViewerPrefs();
+  }
+
   function openMemoModal(id) {
     const r = memoRecords.find(x => x.id === id);
     if (!r) return;
@@ -1805,11 +1885,49 @@
     const dots = labels.length ? labels.map(id => `<span style="color:${labelColor(id).hex};">●</span>`).join(' ') : `<span style="color:${UNCLASSIFIED.hex};">●</span>`;
     document.getElementById('modalTitle').innerHTML = `${dots} ${r.date}<span style="margin-left:8px;font-weight:normal;font-size:calc(1em - 1px);color:var(--sub-text);white-space:nowrap;">${memoCountText(r.text)}</span>`;
     document.getElementById('modalBodyText').innerHTML = decoRenderHtml(r.text);
-    document.getElementById('memoModal').style.display = 'flex';
+    loadViewerPrefs();
+    applyViewerPrefs();
+    const v = document.getElementById('memoModal');
+    v.style.display = 'flex';
+    document.body.classList.add('mv-open');
+    const body = document.getElementById('mvBody');
+    body.scrollTop = 0; body.scrollLeft = 0;
+    if (!memoViewerOpen) {
+      // スマホの「戻る」で、アプリごと戻らずにビューアだけ閉じるための履歴
+      try { history.pushState({ memoViewer: 1 }, ''); } catch (_) {}
+    }
+    memoViewerOpen = true;
+    updateViewerFloatClose();
   }
 
-  function closeMemoModal() {
+  function closeMemoModal(fromPop) {
+    if (!memoViewerOpen && document.getElementById('memoModal').style.display === 'none') return;
+    const wasOpen = memoViewerOpen;
+    memoViewerOpen = false;
     document.getElementById('memoModal').style.display = 'none';
+    document.body.classList.remove('mv-open');
+    document.getElementById('mvFloatClose').style.display = 'none';
+    if (wasOpen && fromPop !== true && history.state && history.state.memoViewer) {
+      try { history.back(); } catch (_) {}
+    }
+  }
+
+  // ピンチで拡大して、固定ヘッダーの「閉じる」が見えなくなったときだけ、画面の右上に追従する閉じるボタンを出す
+  function updateViewerFloatClose() {
+    const btn = document.getElementById('mvFloatClose');
+    const vv = window.visualViewport;
+    if (!btn) return;
+    if (!memoViewerOpen || !vv || vv.scale <= 1.15) { btn.style.display = 'none'; return; }
+    const sc = vv.scale;
+    btn.style.display = 'flex';
+    btn.style.transform = `translate(${vv.offsetLeft + vv.width - 94 / sc}px, ${vv.offsetTop + 10 / sc}px) scale(${1 / sc})`;
+  }
+
+  window.addEventListener('popstate', () => { if (memoViewerOpen) closeMemoModal(true); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && memoViewerOpen) closeMemoModal(); });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateViewerFloatClose);
+    window.visualViewport.addEventListener('scroll', updateViewerFloatClose);
   }
 
   function setupDragAndDrop(containerId, isEditingFn, onReordered) {
