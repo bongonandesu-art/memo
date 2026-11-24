@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" sizes="192x192" href="iconq01_192.png">
 <link rel="apple-touch-icon" href="iconq01_192.png">
-<title>MEMO-Q_v3.2.0</title>
-<!-- Version: v3.2.0 -->
+<title>MEMO-Q_v3.3.0</title>
+<!-- Version: v3.3.0 -->
 <style>
   :root {
     --bg-color: #f4f7f6;
@@ -135,7 +135,7 @@
     background-color: var(--input-bg); color: var(--text-color);
     border: 1px solid var(--input-border); border-radius: 4px; font-size: 0.92rem;
   }
-  textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 70px; font-family: inherit; line-height: 1.5; height: min(calc(15em + 16px), 40vh); }
 
   .row { display: flex; gap: 6px; }
   .row > div { flex: 1; }
@@ -337,13 +337,44 @@
     opacity:0; pointer-events:none; transition:opacity .2s;
   }
   .memo-toast.show { opacity:1; }
+  /* v3.3.0 検索画面 */
+  .memo-search {
+    display: none; position: fixed; inset: 0; z-index: 950; flex-direction: column;
+    background: var(--bg-color); color: var(--text-color);
+    padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
+  }
+  .ms-head {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+    background: var(--card-bg); border-bottom: 1px solid var(--input-border);
+  }
+  .ms-input {
+    flex: 1 1 auto; min-width: 0; height: 40px; padding: 0 10px; box-sizing: border-box;
+    border: 1px solid var(--input-border); border-radius: 8px; background: var(--input-bg); color: var(--text-color); font-size: 1rem;
+  }
+  .ms-close { flex: none; border: 0; border-radius: 4px; background: #6c757d; color: #fff; padding: 9px 14px; font-size: .85rem; cursor: pointer; }
+  .ms-status { flex: 0 0 auto; padding: 8px 14px 4px; font-size: .78rem; color: var(--sub-text); }
+  .ms-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 6px 12px calc(18px + env(safe-area-inset-bottom)); }
+  .sr-card {
+    display: grid; grid-template-columns: 58px minmax(0,1fr) 32px; align-items: stretch; gap: 7px; padding: 9px 7px; margin-bottom: 8px;
+    background: var(--card-bg); border: 1px solid var(--td-border); border-radius: 9px; box-shadow: 0 1px 3px var(--card-shadow);
+    color: var(--text-color); box-sizing: border-box;
+  }
+  .sr-card.done { background: var(--done-bg); color: var(--done-text); }
+  .sr-card.done .memo-text { text-decoration: line-through; }
+  .sr-excerpt {
+    margin-top: 5px; padding: 4px 7px; border-left: 3px solid var(--primary-color); border-radius: 3px; background: var(--item-box-bg);
+    font-size: .78rem; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-color);
+  }
+  mark.sr-hit { background: var(--dc-hl); color: inherit; border-radius: 2px; padding: 0 1px; }
+  .memo-sort-actions { display: flex; align-items: center; gap: 16px; }
   /* v3.1.0 全画面メモビューア（ヘッダー固定／本文は縦横スクロール） */
   .memo-viewer {
-    display: none; position: fixed; inset: 0; z-index: 1000; flex-direction: column;
+    display: none; position: fixed; inset: 0; z-index: 1010; flex-direction: column;
     background: var(--card-bg); color: var(--text-color);
     padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);
   }
-  body.mv-open { overflow: hidden; }
+  body.mv-open, body.ms-open { overflow: hidden; }
   .mv-head {
     flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
     padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
@@ -395,7 +426,7 @@
 <body>
 
   <div class="top-bar" id="topBar">
-    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.2.0</span></button>
+    <button type="button" class="app-title-button" id="appTitleButton" onclick="toggleInputPanel('memo')" aria-expanded="false" aria-label="MEMO-Q 入力フォームを開く"><img class="app-logo" src="logoq01_web2.png" width="453" height="96" alt="MEMO-Q" onerror="this.replaceWith(document.createTextNode('MEMO-Q'))"><span class="app-version">v3.3.0</span></button>
     <button type="button" class="theme-btn" id="themeToggle" onclick="toggleTheme()" aria-label="ライト・ダーク切り替え">☀️</button>
     <button type="button" class="selection-toggle" id="selectionModeToggle" aria-pressed="false" onclick="toggleSelectionMode()" title="複数選択モード">
       <span>選択</span><span class="toggle-track"></span>
@@ -447,9 +478,23 @@
 
     <div class="memo-sort-row">
       <h2>蓄積エリア（メモ一覧）</h2>
-      <button type="button" class="sort-btn" id="memoDateSortBtn" onclick="toggleMemoDateSort()">日付 ▼</button>
+      <div class="memo-sort-actions">
+        <button type="button" class="sort-btn" id="memoSearchBtn" onclick="openMemoSearch()" aria-label="メモを検索">🔍</button>
+        <button type="button" class="sort-btn" id="memoDateSortBtn" onclick="toggleMemoDateSort()">日付 ▼</button>
+      </div>
     </div>
     <div class="memo-list" id="memoListBody"></div>
+  </div>
+
+  <!-- 検索画面（全画面） -->
+  <div class="memo-search" id="memoSearch" role="dialog" aria-modal="true" aria-label="メモ検索">
+    <div class="ms-head">
+      <input type="search" id="msInput" class="ms-input" placeholder="全メモから検索" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="search"
+        oninput="runMemoSearch()" onkeydown="if(event.key==='Enter'){this.blur();}">
+      <button type="button" class="ms-close" onclick="closeMemoSearch()">閉じる</button>
+    </div>
+    <div class="ms-status" id="msStatus"></div>
+    <div class="ms-body" id="msBody"></div>
   </div>
 
   <!-- 全文表示ポップアップ -->
@@ -559,7 +604,7 @@
   let openKebabId = null;
 
   window.onload = () => {
-    try { if (history.state && history.state.memoViewer) history.replaceState(null, ''); } catch (_) {}
+    try { if (history.state && (history.state.memoViewer || history.state.memoSearch)) history.replaceState(null, ''); } catch (_) {}
     const today = new Date().toISOString().slice(0, 10);
     document.getElementById('memoDate').value = today;
 
@@ -1848,6 +1893,260 @@
     document.getElementById('memoQrSplitBar').innerHTML = '';
   }
 
+  // ===== v3.3.0 全メモ検索（全画面の検索画面） =====
+  let memoSearchOpen = false;
+  let msKebabId = null;
+  let msTimer = null;
+  let msTerms = [];            // 正規化した検索語
+  const msCache = new Map();   // id -> 正規化した本文（本文が変わったら作り直す）
+
+  // 全角/半角・大文字/小文字をそろえる（NFKC＋小文字化）。正規化後の位置から、元の位置に戻せるように対応表も作る。
+  function msNormalize(text) {
+    let norm = '';
+    const mapS = [], mapE = [];
+    let pos = 0;
+    for (const ch of text) {
+      const n = ch.normalize('NFKC').toLowerCase();
+      for (let k = 0; k < n.length; k++) { mapS.push(pos); mapE.push(pos + ch.length); }
+      norm += n;
+      pos += ch.length;
+    }
+    return { norm, mapS, mapE };
+  }
+
+  function msParseQuery(q) {
+    const n = msNormalize(q).norm;
+    const seen = new Set();
+    const terms = [];
+    n.split(/[\s\u3000]+/).forEach(t => {
+      if (t && !seen.has(t) && terms.length < 8) { seen.add(t); terms.push(t); }
+    });
+    return terms;
+  }
+
+  function msEntry(r) {
+    let e = msCache.get(r.id);
+    if (!e || e.src !== r.text) {
+      const plain = decoToPlain(r.text);   // 装飾の記号は検索の対象にしない
+      e = Object.assign({ src: r.text, plain }, msNormalize(plain));
+      msCache.set(r.id, e);
+    }
+    return e;
+  }
+
+  // 一致した範囲を、元の文字の位置で返す（重なりはまとめる）
+  function msRanges(norm, mapS, mapE, terms) {
+    const raw = [];
+    terms.forEach(t => {
+      let i = norm.indexOf(t);
+      while (i >= 0) {
+        raw.push([mapS[i], mapE[i + t.length - 1]]);
+        i = norm.indexOf(t, i + t.length);
+      }
+    });
+    raw.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const out = [];
+    raw.forEach(r => {
+      const last = out[out.length - 1];
+      if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]);
+      else out.push([r[0], r[1]]);
+    });
+    return out;
+  }
+
+  // 文字列の一部（元の位置 segStart から）に、一致した範囲を目立たせたHTMLにする
+  function msMarkHtml(seg, segStart, ranges) {
+    let html = '', cur = 0;
+    ranges.forEach(([rs, re]) => {
+      const a = rs - segStart, b = re - segStart;
+      if (b <= 0 || a >= seg.length) return;
+      const s = Math.max(a, 0), t = Math.min(b, seg.length);
+      if (t <= s || s < cur) return;
+      html += escapeHtml(seg.slice(cur, s)) + '<mark class="sr-hit">' + escapeHtml(seg.slice(s, t)) + '</mark>';
+      cur = t;
+    });
+    return html + escapeHtml(seg.slice(cur));
+  }
+
+  // 1個目の一致の行と、その前後1行ずつ（最大3行）。一致した行は、一致の前後30文字に切る。
+  function msExcerptHtml(e, ranges) {
+    const lines = e.plain.split('\n');
+    const starts = [];
+    let off = 0;
+    lines.forEach(l => { starts.push(off); off += l.length + 1; });
+    const hit = ranges[0];
+    let li = 0;
+    for (let i = 0; i < lines.length; i++) { if (hit[0] >= starts[i]) li = i; else break; }
+    const out = [];
+    for (let k = Math.max(0, li - 1); k <= Math.min(lines.length - 1, li + 1); k++) {
+      const line = lines[k];
+      if (k !== li && line.trim() === '') continue;
+      let a = 0, b = line.length;
+      if (k === li) {
+        const hs = hit[0] - starts[k];
+        const he = Math.min(hit[1] - starts[k], line.length);
+        a = Math.max(0, hs - 30);
+        b = Math.min(line.length, he + 30);
+      } else if (line.length > 40) {
+        b = 40;
+      }
+      out.push((a > 0 ? '…' : '') + msMarkHtml(line.slice(a, b), starts[k] + a, ranges) + (b < line.length ? '…' : ''));
+    }
+    return out.join('\n');
+  }
+
+  // 全文ビューアの表示内容の中で、検索語を目立たせる。最初の一致の要素を返す。
+  function msHighlightIn(el, terms) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    let first = null;
+    nodes.forEach(node => {
+      const text = node.nodeValue;
+      const { norm, mapS, mapE } = msNormalize(text);
+      const ranges = msRanges(norm, mapS, mapE, terms);
+      if (!ranges.length) return;
+      const frag = document.createDocumentFragment();
+      let cur = 0;
+      ranges.forEach(([a, b]) => {
+        if (a > cur) frag.appendChild(document.createTextNode(text.slice(cur, a)));
+        const m = document.createElement('mark');
+        m.className = 'sr-hit';
+        m.textContent = text.slice(a, b);
+        frag.appendChild(m);
+        if (!first) first = m;
+        cur = b;
+      });
+      if (cur < text.length) frag.appendChild(document.createTextNode(text.slice(cur)));
+      node.parentNode.replaceChild(frag, node);
+    });
+    return first;
+  }
+
+  function msCardHtml(r, e) {
+    const labels = memoLabelsOf(r);
+    const dots = labels.length
+      ? labels.map(id => `<span class="memo-color-dot" style="color:${labelColor(id).hex}" title="${escapeHtml(labelName(id))}">●</span>`).join('')
+      : `<span class="memo-color-dot" style="color:${UNCLASSIFIED.hex}" title="未分類">●</span>`;
+    const ranges = msRanges(e.norm, e.mapS, e.mapE, msTerms);
+    return `
+      <div class="sr-card${r.done ? ' done' : ''}" data-id="${r.id}">
+        <div class="memo-meta">
+          <div class="memo-meta-colors">${dots}</div>
+          <div class="memo-date">${escapeHtml(r.date)}</div>
+          ${r.done ? '<div class="memo-meta-top"><span>（済）</span></div>' : ''}
+        </div>
+        <div class="memo-main" onclick="openMemoModal(${r.id}, msTerms)">
+          <div class="memo-text"><span>${decoRenderHtml(r.text)}</span></div>
+          <div class="memo-count">${memoCountText(r.text)}</div>
+          <div class="sr-excerpt">${msExcerptHtml(e, ranges)}</div>
+        </div>
+        <div class="memo-kebab-wrap">
+          <button type="button" class="memo-kebab" aria-label="メモ操作" onclick="toggleSearchKebab(event, ${r.id})">⋮</button>
+          <div class="memo-kebab-menu" onclick="event.stopPropagation()">
+            <button type="button" onclick="searchKebabAction('edit', ${r.id})">編集</button>
+            <button type="button" onclick="searchKebabAction('copy', ${r.id})">全文コピー</button>
+            <button type="button" onclick="searchKebabAction('qr', ${r.id})">QRコード生成</button>
+            <button type="button" onclick="searchKebabAction('delete', ${r.id})">削除</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function runMemoSearch() {
+    clearTimeout(msTimer);
+    msTimer = setTimeout(renderMemoSearch, 120);
+  }
+
+  function renderMemoSearch() {
+    const body = document.getElementById('msBody');
+    const status = document.getElementById('msStatus');
+    msTerms = msParseQuery(document.getElementById('msInput').value);
+    msKebabId = null;
+    if (!msTerms.length) {
+      body.innerHTML = '';
+      status.textContent = '検索語を入力してください。スペースで区切ると、すべてを含むメモを探します。';
+      return;
+    }
+    const list = [...memoRecords];
+    if (memoSortOrder === 'desc') list.sort((a, b) => b.date.localeCompare(a.date));
+    else if (memoSortOrder === 'asc') list.sort((a, b) => a.date.localeCompare(b.date));
+    const hits = [];
+    list.forEach(r => {
+      const e = msEntry(r);
+      if (msTerms.every(t => e.norm.includes(t))) hits.push([r, e]);
+    });
+    status.textContent = hits.length ? `${hits.length}件のメモが見つかりました` : '一致するメモはありません';
+    body.innerHTML = hits.map(([r, e]) => msCardHtml(r, e)).join('');
+  }
+
+  function openMemoSearch() {
+    if (memoSearchOpen) return;
+    document.getElementById('msInput').value = '';
+    renderMemoSearch();
+    document.getElementById('memoSearch').style.display = 'flex';
+    document.body.classList.add('ms-open');
+    try { history.pushState({ memoSearch: 1 }, ''); } catch (_) {}
+    memoSearchOpen = true;
+    setTimeout(() => { try { document.getElementById('msInput').focus(); } catch (_) {} }, 60);
+  }
+
+  function closeMemoSearch(fromPop) {
+    if (!memoSearchOpen) return;
+    memoSearchOpen = false;
+    clearTimeout(msTimer);
+    document.getElementById('memoSearch').style.display = 'none';
+    document.body.classList.remove('ms-open');
+    try { document.getElementById('msInput').blur(); } catch (_) {}
+    msKebabId = null;
+    if (fromPop !== true && history.state && history.state.memoSearch) {
+      try { skipNextPop++; history.back(); } catch (_) { skipNextPop = Math.max(0, skipNextPop - 1); }
+    }
+  }
+
+  function toggleSearchKebab(event, id) {
+    event.stopPropagation();
+    const wasOpen = msKebabId === id;
+    closeSearchKebabs();
+    if (wasOpen) return;
+    msKebabId = id;
+    const menu = event.currentTarget.parentElement.querySelector('.memo-kebab-menu');
+    if (menu) { menu.classList.add('open'); positionKebabMenu(menu); }
+  }
+
+  function closeSearchKebabs() {
+    msKebabId = null;
+    document.querySelectorAll('#msBody .memo-kebab-menu.open').forEach(m => m.classList.remove('open', 'up'));
+  }
+
+  function searchKebabAction(action, id) {
+    closeSearchKebabs();
+    if (action === 'copy') { copyMemoText(id); return; }
+    if (action === 'qr') { openMemoQr(id); return; }
+    if (action === 'edit') { searchEditMemo(id); return; }
+    if (action === 'delete') { deleteMemoRecord(id); renderMemoSearch(); }
+  }
+
+  // 検索画面を閉じて、一覧の中で、そのメモを編集状態にする（ラベルの絞り込みで隠れるときは、絞り込みを解除する）
+  function searchEditMemo(id) {
+    closeMemoSearch();
+    const r = memoRecords.find(x => x.id === id);
+    if (!r) return;
+    const visible = memoFilterColor === 'all'
+      || (memoFilterColor === 'gray' ? memoLabelsOf(r).length === 0 : memoLabelsOf(r).includes(memoFilterColor));
+    if (!visible) changeMemoColorFilter('all');
+    memoEditingId = id;
+    renderMemos();
+    setTimeout(() => {
+      const ta = document.getElementById(`editMemoText_${id}`);
+      if (ta) ta.scrollIntoView({ block: 'center' });
+    }, 60);
+  }
+
+  document.addEventListener('click', e => {
+    if (memoSearchOpen && !e.target.closest('.memo-kebab-wrap')) closeSearchKebabs();
+  });
+
   // ===== v3.1.0 全画面メモビューア =====
   const MV_SCALE_KEY = 'memo_viewer_scale_v1';
   const MV_NOWRAP_KEY = 'memo_viewer_nowrap_v1';
@@ -1856,6 +2155,7 @@
   let mvNowrap = false;     // 折り返しなし
   let mvMono = false;       // 等幅フォント
   let memoViewerOpen = false;
+  let skipNextPop = 0;      // 自分で history.back() したときの popstate は、戻る操作として扱わない
 
   function loadViewerPrefs() {
     try {
@@ -1899,7 +2199,7 @@
     applyViewerPrefs();
   }
 
-  function openMemoModal(id) {
+  function openMemoModal(id, hlTerms) {
     const r = memoRecords.find(x => x.id === id);
     if (!r) return;
     const labels = memoLabelsOf(r);
@@ -1913,6 +2213,11 @@
     document.body.classList.add('mv-open');
     const body = document.getElementById('mvBody');
     body.scrollTop = 0; body.scrollLeft = 0;
+    if (hlTerms && hlTerms.length) {
+      // 検索から開いたときは、検索語を目立たせて、最初の一致の場所まで進める
+      const first = msHighlightIn(document.getElementById('modalBodyText'), hlTerms);
+      if (first) { try { first.scrollIntoView({ block: 'center', inline: 'center' }); } catch (_) {} }
+    }
     if (!memoViewerOpen) {
       // スマホの「戻る」で、アプリごと戻らずにビューアだけ閉じるための履歴
       try { history.pushState({ memoViewer: 1 }, ''); } catch (_) {}
@@ -1929,7 +2234,7 @@
     document.body.classList.remove('mv-open');
     document.getElementById('mvFloatClose').style.display = 'none';
     if (wasOpen && fromPop !== true && history.state && history.state.memoViewer) {
-      try { history.back(); } catch (_) {}
+      try { skipNextPop++; history.back(); } catch (_) { skipNextPop = Math.max(0, skipNextPop - 1); }
     }
   }
 
@@ -1944,7 +2249,12 @@
     btn.style.transform = `translate(${vv.offsetLeft + vv.width - 94 / sc}px, ${vv.offsetTop + 10 / sc}px) scale(${1 / sc})`;
   }
 
-  window.addEventListener('popstate', () => { if (memoViewerOpen) closeMemoModal(true); });
+  // スマホの「戻る」は、いちばん上に開いているものから1段ずつ閉じる（全文ビューア → 検索画面）
+  window.addEventListener('popstate', () => {
+    if (skipNextPop > 0) { skipNextPop--; return; }
+    if (memoViewerOpen) { closeMemoModal(true); return; }
+    if (memoSearchOpen) closeMemoSearch(true);
+  });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && memoViewerOpen) closeMemoModal(); });
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', updateViewerFloatClose);
